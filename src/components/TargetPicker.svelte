@@ -1,8 +1,9 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import { CAR_CLASSES, CAR_CLASS_BY_ID, searchCars } from "../lib/cars";
+  import { VARIANT_BY_ID } from "../lib/carVariants";
   import { carColor } from "../lib/carVisuals";
-  import { target } from "../lib/store";
+  import { target, booking } from "../lib/store";
   import type { CarClassId, CarModel } from "../lib/types";
   import CarArt from "./CarArt.svelte";
 
@@ -10,6 +11,35 @@
 
   let query = "";
   $: results = query.trim() ? searchCars(query).slice(0, 10) : [];
+
+  /** The booked car as a one-line label, for the quick-hunt button. */
+  $: bookedLabel = (() => {
+    const b = $booking;
+    if (!b) return "";
+    if (b.bookedVariantId && VARIANT_BY_ID[b.bookedVariantId]) {
+      const v = VARIANT_BY_ID[b.bookedVariantId];
+      return `${v.brand} ${v.family} ${v.trim}`;
+    }
+    return b.bookedExample?.trim() || CAR_CLASS_BY_ID[b.expectedClassId].label;
+  })();
+
+  function huntBooked() {
+    const b = $booking;
+    if (!b) return;
+    const v = b.bookedVariantId ? VARIANT_BY_ID[b.bookedVariantId] : undefined;
+    if (v) {
+      target.set({
+        kind: "model",
+        classId: v.classId,
+        brand: v.brand,
+        model: `${v.family} ${v.trim}`,
+        body: v.body
+      });
+    } else {
+      target.set({ kind: "class", classId: b.expectedClassId });
+    }
+    dispatch("close");
+  }
 
   function pickAny() {
     target.set({ kind: "any" });
@@ -68,7 +98,7 @@
           {#each results as m}
             <button class="resrow" on:click={() => pickModel(m)}>
               <div class="resart" style="background:{tint(m.classId)}">
-                <CarArt classId={m.classId} body={m.body} compact />
+                <CarArt classId={m.classId} body={m.body} brand={m.brand} compact />
               </div>
               <div class="resinfo">
                 <div class="resname">{m.brand} {m.model}</div>
@@ -81,6 +111,23 @@
       {:else if query.trim()}
         <div class="none">No car matches “{query.trim()}”.</div>
       {:else}
+        {#if $booking}
+          <button class="booked-row" on:click={huntBooked}>
+            <div class="booked-ico">
+              <svg viewBox="0 0 24 24" width="19" height="19">
+                <path d="M5 11l1.6-4.8A2 2 0 0 1 8.5 4.8h7A2 2 0 0 1 17.4 6.2L19 11M5 11h14M5 11v6M19 11v6M7 17h2M15 17h2"
+                      fill="none" stroke="currentColor" stroke-width="1.8"
+                      stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div class="booked-txt">
+              <b>Hunt my booked car</b>
+              <small>{bookedLabel}</small>
+            </div>
+            <span class="booked-go">›</span>
+          </button>
+        {/if}
+
         <!-- reset / any -->
         <button class="any-row" on:click={pickAny}>
           <div class="any-ico">
@@ -209,6 +256,34 @@
     padding: 4px 14px 18px;
     -webkit-overflow-scrolling: touch;
   }
+
+  .booked-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    text-align: left;
+    margin-bottom: 9px;
+  }
+  .booked-row:active { transform: scale(0.99); }
+  .booked-ico {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.22);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+  .booked-txt { flex: 1; min-width: 0; }
+  .booked-txt b { font-size: 15px; }
+  .booked-txt small { display: block; font-size: 12px; opacity: 0.9; margin-top: 1px; }
+  .booked-go { font-size: 20px; opacity: 0.8; flex-shrink: 0; }
 
   /* any / reset */
   .any-row {

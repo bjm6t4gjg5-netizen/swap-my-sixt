@@ -53,3 +53,37 @@ export function carColor(id: CarClassId): string {
 export function carBody(id: CarClassId): BodyShape {
   return BODY_OF[id] ?? "sedan";
 }
+
+/** Signature body colour per brand — so a BMW doesn't look like an Audi. */
+const BRAND_COLOR: Record<string, string> = {
+  BMW: "#1c69d4",
+  "Mercedes-Benz": "#33363d",
+  "Mercedes-AMG": "#16181c",
+  Audi: "#565b63",
+  Volkswagen: "#1f56a8",
+  Tesla: "#c62d3a",
+  Porsche: "#caa12e",
+  Skoda: "#3a9e57",
+  Opel: "#e0a200",
+  Ford: "#1f4fa0",
+  Mini: "#15643a",
+  Fiat: "#d6536b",
+  Volvo: "#3a5f80",
+  Hyundai: "#3d6f93",
+  Kia: "#5a4f6b",
+  Renault: "#f0b400",
+  Toyota: "#5a6470",
+  Seat: "#b03a3a",
+  Mazda: "#7a1f2c",
+  Peugeot: "#2a3442",
+  Jaguar: "#2f6a4a",
+  "Land Rover": "#3c5142",
+  Polestar: "#6b7785",
+  Maserati: "#1f2f66"
+};
+
+/** Colour for a car: brand identity if known, else the class colour. */
+export function brandColor(brand: string | undefined, classId: CarClassId): string {
+  if (brand && BRAND_COLOR[brand]) return BRAND_COLOR[brand];
+  return carColor(classId);
+}

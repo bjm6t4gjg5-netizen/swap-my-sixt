@@ -57,11 +57,39 @@ export interface CarClass {
   acriss?: string;
 }
 
+export type FuelKind =
+  | "Petrol"
+  | "Diesel"
+  | "Hybrid"
+  | "Plug-in Hybrid"
+  | "Electric";
+export type Drivetrain = "RWD" | "FWD" | "AWD";
+
+/** A specific engine variant of a car, with real-world specs. */
+export interface CarVariant {
+  id: string;        // kebab-case unique slug, e.g. "bmw-5-530i"
+  brand: string;     // "BMW"
+  family: string;    // "5 Series"
+  trim: string;      // "530i", "M550i xDrive"
+  classId: CarClassId;
+  body: BodyShape;
+  fuel: FuelKind;
+  hp: number;        // horsepower (PS)
+  topSpeed: number;  // km/h (250 = electronically limited)
+  accel: number;     // 0–100 km/h, seconds
+  drivetrain: Drivetrain;
+  /** Combined consumption: l/100km, or kWh/100km for electric. */
+  consumption: number;
+  seats: number;
+}
+
 /** A car logged in negotiation mode (offered, or spotted on the lot). */
 export interface NegCar {
   brand: string;
   model: string;
   classId: CarClassId;
+  /** Optional link to a detailed variant for spec-level comparison. */
+  variantId?: string;
 }
 
 export interface Route {
@@ -89,8 +117,12 @@ export interface Booking {
   returnStationId?: string;
   returnDate?: string;
   returnTime?: string;
-  /** Internal class — derived from the ACRISS code, or chosen manually. */
+  /** Internal class — derived from the ACRISS code, variant, or chosen. */
   expectedClassId: CarClassId;
+  /** The exact booked engine variant, if known — enables spec comparison. */
+  bookedVariantId?: string;
+  /** Sixt loyalty status: "none" | "gold" | "platinum" | "diamond". */
+  sixtStatus?: string;
   actualBrand?: string;
   actualModel?: string;
   actualClassId?: CarClassId;

@@ -34,6 +34,7 @@
         <CarArt
           classId={$target.classId}
           body={$target.kind === "model" ? $target.body : undefined}
+          brand={$target.kind === "model" ? $target.brand : undefined}
           compact
         />
       {/if}

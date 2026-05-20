@@ -186,6 +186,13 @@ export function modelsInClass(classId: CarClassId): CarModel[] {
   return CAR_MODELS.filter((m) => m.classId === classId);
 }
 
+/** Google Images search for a real photo of a car. */
+export function carPhotoSearchUrl(brand: string, model: string): string {
+  return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(
+    `${brand} ${model}`
+  )}`;
+}
+
 /** The silhouette a model actually has (own override, else the class default). */
 export function effectiveBody(m: CarModel): BodyShape {
   return m.body ?? carBody(m.classId);

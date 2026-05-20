@@ -1,15 +1,17 @@
 <script lang="ts">
   import type { CarClassId } from "../lib/types";
-  import { carBody, carColor, type BodyShape } from "../lib/carVisuals";
+  import { carBody, brandColor, type BodyShape } from "../lib/carVisuals";
 
   export let classId: CarClassId;
   /** Slightly smaller treatment when inlined in tight spaces. */
   export let compact = false;
   /** Override the class-default silhouette (e.g. an SUV inside the EV class). */
   export let body: BodyShape | undefined = undefined;
+  /** Brand — paints the car in that brand's signature colour. */
+  export let brand: string | undefined = undefined;
 
   $: shape = body ?? carBody(classId);
-  $: color = carColor(classId);
+  $: color = brandColor(brand, classId);
 
   // wheel layout per body: [frontX, rearX, centreY, radius]
   const WHEELS: Record<BodyShape, [number, number, number, number]> = {

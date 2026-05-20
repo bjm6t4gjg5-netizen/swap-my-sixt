@@ -4,7 +4,8 @@
     CAR_CLASS_BY_ID,
     CAR_MODELS,
     modelsInClass,
-    searchCars
+    searchCars,
+    carPhotoSearchUrl
   } from "../lib/cars";
   import { carColor } from "../lib/carVisuals";
   import { target, type Target } from "../lib/store";
@@ -40,6 +41,9 @@
   /** soft tinted background from the class colour */
   function tint(id: CarClassId, alphaHex: string) {
     return carColor(id) + alphaHex;
+  }
+  function openPhotos(m: CarModel) {
+    window.open(carPhotoSearchUrl(m.brand, m.model), "_blank", "noopener");
   }
 </script>
 
@@ -96,7 +100,7 @@
             (e.key === "Enter" || e.key === " ") && (openClass = m.classId)}
         >
           <div class="res-art" style="background:{tint(m.classId, '14')}">
-            <CarArt classId={m.classId} body={m.body} compact />
+            <CarArt classId={m.classId} body={m.body} brand={m.brand} compact />
           </div>
           <div class="res-info">
             <div class="res-name">{m.brand} {m.model}</div>
@@ -176,12 +180,13 @@
         <div class="m-modlabel">Models in this class</div>
         <div class="m-modelgrid">
           {#each modelsInClass(detail.id) as m}
-            <div class="modelcard">
+            <button class="modelcard" on:click={() => openPhotos(m)}>
               <div class="mc-art" style="background:{tint(detail.id, '14')}">
-                <CarArt classId={m.classId} body={m.body} />
+                <CarArt classId={m.classId} body={m.body} brand={m.brand} />
               </div>
               <div class="mc-name">{m.brand} {m.model}</div>
-            </div>
+              <div class="mc-photos">View photos ↗</div>
+            </button>
           {/each}
         </div>
 
@@ -429,13 +434,23 @@
     border: 1px solid var(--line-soft);
     border-radius: 13px;
     overflow: hidden;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
   }
+  .modelcard:active { transform: scale(0.98); }
   .mc-art { padding: 10px 10px 4px; }
   .mc-name {
-    padding: 4px 11px 10px;
+    padding: 4px 11px 1px;
     font-size: 12.5px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text);
+  }
+  .mc-photos {
+    padding: 0 11px 9px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--blue);
   }
   .m-target {
     width: 100%;

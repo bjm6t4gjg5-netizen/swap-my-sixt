@@ -1,6 +1,12 @@
 <script lang="ts">
   import { STATION_BY_ID, STATIONS } from "../lib/stations";
   import { CAR_CLASSES, CAR_CLASS_BY_ID, searchCars } from "../lib/cars";
+  import {
+    VARIANT_BY_ID,
+    searchVariants,
+    variantLabel,
+    consumptionLabel
+  } from "../lib/carVariants";
   import { decodeAcriss, ACRISS_EXAMPLES } from "../lib/acriss";
   import { computeScore } from "../lib/heuristic";
   import { haversineKm } from "../lib/geo";
@@ -8,6 +14,7 @@
   import type {
     Booking,
     CarModel,
+    CarVariant,
     NegCar,
     ScoredStation
   } from "../lib/types";
@@ -30,6 +37,8 @@
       returnDate: "",
       returnTime: "",
       expectedClassId: "premium",
+      bookedVariantId: undefined,
+      sixtStatus: "none",
       actualBrand: "",
       actualModel: "",
       actualClassId: undefined,
@@ -43,8 +52,31 @@
 
   // live ACRISS decode of the draft (read-only — avoids a reactive cycle)
   $: draftDecoded = decodeAcriss(draft.acrissCode ?? "");
-  // the class we'll actually store: decoded code wins, else the manual pick
-  $: resolvedClassId = draftDecoded.valid ? draftDecoded.classId : manualClass;
+  // the booked engine variant (if picked) — its class wins for scoring
+  $: draftBookedVariant = draft.bookedVariantId
+    ? VARIANT_BY_ID[draft.bookedVariantId]
+    : undefined;
+  // class we'll store: variant wins, else decoded ACRISS, else manual pick
+  $: resolvedClassId = draftBookedVariant
+    ? draftBookedVariant.classId
+    : draftDecoded.valid
+      ? draftDecoded.classId
+      : manualClass;
+
+  // --- booked-car variant picker ---
+  let bookedCarQuery = "";
+  $: bookedCarMatches = bookedCarQuery.trim()
+    ? searchVariants(bookedCarQuery)
+    : [];
+  function pickBookedVariant(v: CarVariant) {
+    draft.bookedVariantId = v.id;
+    draft.bookedExample = variantLabel(v);
+    bookedCarQuery = "";
+  }
+  function clearBookedVariant() {
+    draft.bookedVariantId = undefined;
+    draft.bookedExample = "";
+  }
 
   // --- actual-car autocomplete ---
   let carQuery = "";
@@ -177,37 +209,42 @@
     });
   }
 
-  /* ---------- negotiation mode ---------- */
+  /* ---------- negotiation mode (variant-level) ---------- */
   let offeredQuery = "";
   let spottedQuery = "";
-  $: offeredMatches = offeredQuery.trim()
-    ? searchCars(offeredQuery).slice(0, 5)
-    : [];
-  $: spottedMatches = spottedQuery.trim()
-    ? searchCars(spottedQuery).slice(0, 5)
-    : [];
+  $: offeredMatches = offeredQuery.trim() ? searchVariants(offeredQuery) : [];
+  $: spottedMatches = spottedQuery.trim() ? searchVariants(spottedQuery) : [];
 
   $: neg = current?.negotiation ?? { offered: [], spotted: [] };
   $: bookedTier = expectedClass ? expectedClass.tier : 0;
+  $: bookedVariant = current?.bookedVariantId
+    ? VARIANT_BY_ID[current.bookedVariantId]
+    : undefined;
+  $: sixtStatus = current?.sixtStatus ?? "none";
 
   function carTier(c: NegCar): number {
     return CAR_CLASS_BY_ID[c.classId].tier;
   }
-  function carClassLabel(c: NegCar): string {
-    return CAR_CLASS_BY_ID[c.classId].label;
+  function negVariant(c: NegCar): CarVariant | undefined {
+    return c.variantId ? VARIANT_BY_ID[c.variantId] : undefined;
   }
   function bestOf(list: NegCar[]): NegCar | null {
     if (!list.length) return null;
     return list.reduce((a, b) => (carTier(b) > carTier(a) ? b : a));
   }
 
-  function addNegCar(which: "offered" | "spotted", m: CarModel) {
+  function addNegCar(which: "offered" | "spotted", v: CarVariant) {
     if (!current) return;
     const base = current.negotiation ?? { offered: [], spotted: [] };
     const next = { offered: [...base.offered], spotted: [...base.spotted] };
     next[which] = [
       ...next[which],
-      { brand: m.brand, model: m.model, classId: m.classId }
+      {
+        brand: v.brand,
+        model: `${v.family} ${v.trim}`,
+        classId: v.classId,
+        variantId: v.id
+      }
     ];
     booking.set({ ...current, negotiation: next });
     if (which === "offered") offeredQuery = "";
@@ -221,6 +258,23 @@
     booking.set({ ...current, negotiation: next });
   }
 
+  /** How much weight the user's Sixt loyalty status gives at the counter. */
+  function statusLeverage(s: string): string {
+    if (s === "diamond")
+      return "As Sixt Diamond, a free upgrade should be the default — push firmly.";
+    if (s === "platinum")
+      return "Sixt Platinum gives real standing — mention it and expect a better car.";
+    if (s === "gold")
+      return "Sixt Gold helps — drop it in; it nudges the agent toward goodwill.";
+    return "No loyalty status — an upgrade is goodwill, not a right. Be friendly and specific.";
+  }
+  $: statusBump = { none: 1, gold: 2, platinum: 2, diamond: 3 }[sixtStatus] ?? 1;
+
+  /** What counts as a good deal for this booking + status. */
+  $: goodDeal = expectedClass
+    ? `A good deal is anything from your booked ${expectedClass.label} upward. ${statusLeverage(sixtStatus)} Realistically aim about ${statusBump} tier${statusBump > 1 ? "s" : ""} up.`
+    : "";
+
   type NegTone = "good" | "warn" | "bad" | "info";
   $: negVerdict = ((): { tone: NegTone; text: string } => {
     if (!current || !expectedClass) return { tone: "info", text: "" };
@@ -231,7 +285,9 @@
     if (!bestO && !bestS) {
       return {
         tone: "info",
-        text: "Log what the desk offers you, plus anything you can see parked on the lot. I'll tell you whether to switch or hold out."
+        text:
+          "Log what the desk offers you, plus anything you can see parked on the lot — search the exact engine (530i, 540i…) so I can compare specs. " +
+          statusLeverage(sixtStatus)
       };
     }
     if (
@@ -245,7 +301,7 @@
       const gap = carTier(bestS) - (bestO ? carTier(bestO) : bt);
       return {
         tone: "good",
-        text: `Negotiate hard: the ${bestS.brand} ${bestS.model} on the lot is ${gap} tier${gap > 1 ? "s" : ""} above ${overWhat}. Ask for it by name and mention you can see it's available — an idle car is easier to give away than a discount.`
+        text: `Negotiate hard: the ${bestS.brand} ${bestS.model} on the lot is ${gap} tier${gap > 1 ? "s" : ""} above ${overWhat}. Ask for it by name — an idle car is easy to give away. ${statusLeverage(sixtStatus)}`
       };
     }
     if (bestO) {
@@ -253,18 +309,18 @@
       if (d > 0) {
         return {
           tone: "good",
-          text: `Take it. Their best offer — ${bestO.brand} ${bestO.model} — is a ${d}-tier upgrade on your booked ${expectedClass.label}. No reason to hold out unless you've spotted something better.`
+          text: `Take it. ${bestO.brand} ${bestO.model} is a ${d}-tier upgrade on your booked ${expectedClass.label} — hold out only if you've spotted something even better.`
         };
       }
       if (d === 0) {
         return {
           tone: "warn",
-          text: `${bestO.brand} ${bestO.model} matches your booked ${expectedClass.label} — fair, but no upgrade. Scan the lot first; if something better is sitting idle, ask for it.`
+          text: `${bestO.brand} ${bestO.model} only matches your booked ${expectedClass.label}. Scan the lot — with your status you can fairly ask for a step up. ${statusLeverage(sixtStatus)}`
         };
       }
       return {
         tone: "bad",
-        text: `Push back. Everything offered is below your booked ${expectedClass.label} — you're entitled to at least that class. Decline the downgrade and ask them to honour the booking or upgrade you.`
+        text: `Push back. Everything offered is below your booked ${expectedClass.label} — you're entitled to at least that. Decline the downgrade and ask them to honour the booking or upgrade you.`
       };
     }
     return {
@@ -280,18 +336,36 @@
     return { sym: "=", cls: "same", txt: "same" };
   }
 
-  /** Plain-language reason for a car's tier position vs the booking. */
+  /** Concrete, spec-level reason a car is up or down vs the booking. */
   function tierReason(c: NegCar): string {
-    const label = carClassLabel(c);
-    if (!expectedClass) return label;
-    const d = carTier(c) - expectedClass.tier;
-    if (d > 0) {
-      return `${label} — ${d} tier${d > 1 ? "s" : ""} above your booked ${expectedClass.label}, so it's an upgrade`;
+    const cls = CAR_CLASS_BY_ID[c.classId];
+    if (!expectedClass) return cls.label;
+    const d = cls.tier - expectedClass.tier;
+    const dir =
+      d > 0
+        ? `${d} tier${d > 1 ? "s" : ""} above`
+        : d < 0
+          ? `${-d} tier${-d > 1 ? "s" : ""} below`
+          : "same tier as";
+    let base = `${cls.label} — ${dir} your ${expectedClass.label}`;
+    const v = negVariant(c);
+    if (v && bookedVariant) {
+      const diffs: string[] = [];
+      const hpD = v.hp - bookedVariant.hp;
+      if (Math.abs(hpD) >= 10)
+        diffs.push(`${hpD > 0 ? "+" : ""}${hpD} hp (${v.hp} vs ${bookedVariant.hp})`);
+      if (v.drivetrain !== bookedVariant.drivetrain)
+        diffs.push(`${v.drivetrain} vs ${bookedVariant.drivetrain}`);
+      if (v.fuel !== bookedVariant.fuel)
+        diffs.push(`${v.fuel.toLowerCase()} vs ${bookedVariant.fuel.toLowerCase()}`);
+      const spD = v.topSpeed - bookedVariant.topSpeed;
+      if (Math.abs(spD) >= 10)
+        diffs.push(`${spD > 0 ? "+" : ""}${spD} km/h top speed`);
+      if (diffs.length) base += ` · ${diffs.join(", ")}`;
+    } else if (v) {
+      base += ` · ${v.hp} hp, ${v.topSpeed} km/h, ${v.drivetrain}`;
     }
-    if (d < 0) {
-      return `${label} — ${-d} tier${-d > 1 ? "s" : ""} below your booked ${expectedClass.label}, so it's a downgrade`;
-    }
-    return `${label} — same tier as your booked ${expectedClass.label}`;
+    return base;
   }
 </script>
 
@@ -334,7 +408,11 @@
       <!-- decoded vehicle -->
       <div class="vehicle">
         <div class="v-art">
-          <CarArt classId={current.expectedClassId} />
+          <CarArt
+            classId={current.expectedClassId}
+            body={bookedVariant?.body}
+            brand={bookedVariant?.brand}
+          />
         </div>
         <div class="v-info">
           <div class="t-cap">You booked</div>
@@ -344,17 +422,22 @@
               : expectedClass?.label}
             <span class="orsim">or similar</span>
           </div>
-          {#if bookedDecoded?.valid}
-            <div class="v-decode">{bookedDecoded.summary}</div>
-            <div class="v-class">
-              {expectedClass?.label} class
-              <span class="v-code">{bookedDecoded.code}</span>
+          {#if bookedVariant}
+            <div class="v-decode">
+              {bookedVariant.hp} hp · {bookedVariant.topSpeed} km/h ·
+              {bookedVariant.accel}s · {bookedVariant.drivetrain} ·
+              {consumptionLabel(bookedVariant)}
             </div>
-          {:else if current.acrissCode}
-            <div class="v-class">{expectedClass?.label} class</div>
-          {:else}
-            <div class="v-class">{expectedClass?.label} class</div>
+          {:else if bookedDecoded?.valid}
+            <div class="v-decode">{bookedDecoded.summary}</div>
           {/if}
+          <div class="v-class">
+            {expectedClass?.label} class
+            {#if bookedDecoded?.valid}<span class="v-code">{bookedDecoded.code}</span>{/if}
+            {#if current.sixtStatus && current.sixtStatus !== "none"}
+              <span class="v-status">Sixt {current.sixtStatus}</span>
+            {/if}
+          </div>
         </div>
       </div>
 
@@ -421,10 +504,16 @@
       <div class="neg-top">
         <h3>Negotiation helper</h3>
         <p>
-          At the counter — log what they offer you and any cars you can see on
-          the lot. Everything is ranked against your booked
-          <b>{expectedClass?.label}</b>.
+          At the counter — search the exact engine (530i, 540i xDrive…) for
+          every car offered or spotted. Specs are compared against your booked
+          <b>{bookedVariant ? variantLabel(bookedVariant) : expectedClass?.label}</b>.
         </p>
+        {#if goodDeal}
+          <div class="good-deal">
+            <span class="gd-tag">Good deal?</span>
+            {goodDeal}
+          </div>
+        {/if}
       </div>
 
       <div class="neg-grid">
@@ -432,12 +521,25 @@
           <div class="nc-head offered">Offered to me</div>
           {#each neg.offered as c, i}
             {@const d = tierDelta(c)}
+            {@const v = negVariant(c)}
             <div class="ncar">
               <div class="ncar-info">
-                <span class="ncar-name">{c.brand} {c.model}</span>
+                <div class="ncar-top">
+                  <span class="ncar-name">{c.brand} {c.model}</span>
+                  <span class="delta {d.cls}">{d.sym} {d.txt}</span>
+                </div>
+                {#if v}
+                  <div class="ncar-specs">
+                    <span>{v.hp} hp</span>
+                    <span>{v.topSpeed} km/h</span>
+                    <span>{v.accel}s 0–100</span>
+                    <span>{v.drivetrain}</span>
+                    <span>{v.fuel}</span>
+                    <span>{consumptionLabel(v)}</span>
+                  </div>
+                {/if}
                 <span class="ncar-class">{tierReason(c)}</span>
               </div>
-              <span class="delta {d.cls}">{d.sym} {d.txt}</span>
               <button
                 class="ncar-x"
                 on:click={() => removeNegCar("offered", i)}
@@ -447,16 +549,16 @@
           <div class="addbox">
             <input
               type="text"
-              placeholder="Add a car they offered…"
+              placeholder="Search engine — e.g. 530i…"
               bind:value={offeredQuery}
               autocomplete="off"
             />
             {#if offeredMatches.length}
               <div class="adddrop">
-                {#each offeredMatches as m}
-                  <button on:click={() => addNegCar("offered", m)}>
-                    <b>{m.brand} {m.model}</b>
-                    <small>{CAR_CLASS_BY_ID[m.classId].label}</small>
+                {#each offeredMatches as v}
+                  <button on:click={() => addNegCar("offered", v)}>
+                    <b>{v.brand} {v.family} {v.trim}</b>
+                    <small>{v.hp} hp · {v.topSpeed} km/h · {v.fuel}</small>
                   </button>
                 {/each}
               </div>
@@ -468,12 +570,25 @@
           <div class="nc-head spotted">Spotted on the lot</div>
           {#each neg.spotted as c, i}
             {@const d = tierDelta(c)}
+            {@const v = negVariant(c)}
             <div class="ncar">
               <div class="ncar-info">
-                <span class="ncar-name">{c.brand} {c.model}</span>
+                <div class="ncar-top">
+                  <span class="ncar-name">{c.brand} {c.model}</span>
+                  <span class="delta {d.cls}">{d.sym} {d.txt}</span>
+                </div>
+                {#if v}
+                  <div class="ncar-specs">
+                    <span>{v.hp} hp</span>
+                    <span>{v.topSpeed} km/h</span>
+                    <span>{v.accel}s 0–100</span>
+                    <span>{v.drivetrain}</span>
+                    <span>{v.fuel}</span>
+                    <span>{consumptionLabel(v)}</span>
+                  </div>
+                {/if}
                 <span class="ncar-class">{tierReason(c)}</span>
               </div>
-              <span class="delta {d.cls}">{d.sym} {d.txt}</span>
               <button
                 class="ncar-x"
                 on:click={() => removeNegCar("spotted", i)}
@@ -483,16 +598,16 @@
           <div class="addbox">
             <input
               type="text"
-              placeholder="Add a car you can see…"
+              placeholder="Search engine — e.g. X3 xDrive30d…"
               bind:value={spottedQuery}
               autocomplete="off"
             />
             {#if spottedMatches.length}
               <div class="adddrop">
-                {#each spottedMatches as m}
-                  <button on:click={() => addNegCar("spotted", m)}>
-                    <b>{m.brand} {m.model}</b>
-                    <small>{CAR_CLASS_BY_ID[m.classId].label}</small>
+                {#each spottedMatches as v}
+                  <button on:click={() => addNegCar("spotted", v)}>
+                    <b>{v.brand} {v.family} {v.trim}</b>
+                    <small>{v.hp} hp · {v.topSpeed} km/h · {v.fuel}</small>
                   </button>
                 {/each}
               </div>
@@ -634,14 +749,48 @@
         {/if}
       </div>
 
+      <div class="field">
+        <span class="f-lab">Your booked car <em>(exact engine — for spec comparison)</em></span>
+        {#if draftBookedVariant}
+          <div class="picked">
+            <div>
+              <b>{draftBookedVariant.brand} {draftBookedVariant.family} {draftBookedVariant.trim}</b>
+              <small>
+                {draftBookedVariant.hp} hp · {draftBookedVariant.topSpeed} km/h ·
+                {draftBookedVariant.drivetrain} · {draftBookedVariant.fuel}
+              </small>
+            </div>
+            <button class="clr" on:click={clearBookedVariant} aria-label="Clear">×</button>
+          </div>
+        {:else}
+          <input
+            class="ipt"
+            type="text"
+            placeholder="Search — e.g. BMW 4 Series 430i"
+            bind:value={bookedCarQuery}
+            autocomplete="off"
+          />
+          {#if bookedCarMatches.length}
+            <div class="ac">
+              {#each bookedCarMatches as v}
+                <button class="ac-row" on:click={() => pickBookedVariant(v)}>
+                  <b>{v.brand} {v.family} {v.trim}</b>
+                  <small>{v.hp} hp · {v.topSpeed} km/h · {v.fuel}</small>
+                </button>
+              {/each}
+            </div>
+          {/if}
+        {/if}
+      </div>
+
       <label class="field">
-        <span class="f-lab">Car shown <em>(the “… or similar” model)</em></span>
-        <input
-          class="ipt"
-          type="text"
-          placeholder="e.g. BMW 3 Series"
-          bind:value={draft.bookedExample}
-        />
+        <span class="f-lab">Your Sixt status</span>
+        <select class="ipt" bind:value={draft.sixtStatus}>
+          <option value="none">No loyalty status</option>
+          <option value="gold">Sixt Gold</option>
+          <option value="platinum">Sixt Platinum</option>
+          <option value="diamond">Sixt Diamond</option>
+        </select>
       </label>
 
       <div class="field">
@@ -839,6 +988,15 @@
     padding: 1px 6px;
     border-radius: 5px;
   }
+  .v-status {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: capitalize;
+    background: rgba(255, 95, 0, 0.14);
+    color: var(--orange-dark);
+    padding: 1px 7px;
+    border-radius: 5px;
+  }
 
   .t-grid {
     display: grid;
@@ -933,10 +1091,27 @@
   }
   .neg-top h3 { margin: 0 0 3px; font-size: 17px; font-weight: 800; }
   .neg-top p {
-    margin: 0 0 13px;
+    margin: 0 0 10px;
     font-size: 12.5px;
     color: var(--muted);
     line-height: 1.5;
+  }
+  .good-deal {
+    background: rgba(52, 199, 89, 0.12);
+    border-radius: 11px;
+    padding: 9px 11px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text-2);
+    margin-bottom: 13px;
+  }
+  .gd-tag {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #1f8a3b;
+    margin-right: 5px;
   }
   .neg-grid {
     display: grid;
@@ -968,12 +1143,32 @@
     margin-bottom: 6px;
   }
   .ncar-info { flex: 1; min-width: 0; }
-  .ncar-name { font-size: 13.5px; font-weight: 700; display: block; }
+  .ncar-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .ncar-name { font-size: 13.5px; font-weight: 700; }
+  .ncar-specs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+  }
+  .ncar-specs span {
+    font-size: 10.5px;
+    font-weight: 600;
+    background: var(--surface-2);
+    color: var(--text-2);
+    border-radius: 5px;
+    padding: 2px 6px;
+  }
   .ncar-class {
     font-size: 11.5px;
     color: var(--muted);
-    line-height: 1.4;
-    margin-top: 1px;
+    line-height: 1.45;
+    margin-top: 6px;
     display: block;
   }
   .delta {

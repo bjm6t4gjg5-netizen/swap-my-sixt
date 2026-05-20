@@ -1,4 +1,4 @@
-# Swap my Sixt — v3.4
+# Swap my Sixt — v4.5
 
 A navigation web app that helps you swap a Sixt rental into the car you
 actually want. Plan a route, see every Sixt station along it, and get a live
@@ -31,9 +31,17 @@ app shows the status — *Reserved*, *Class matched*, or *Wrong class* — and o
 a mismatch ranks the nearest stations likely to have the class you booked.
 
 **Negotiation mode** — at the counter, log every car they offer you plus any
-car you can see sitting on the lot. Each is ranked by value tier against your
-booked class (▲ upgrade / ▼ downgrade), and a live strategy line tells you
-whether to accept, hold out, or point at a specific better car and ask for it.
+car you can see on the lot, by exact engine variant (530i, 540i xDrive…).
+A 131-strong variant database means each car carries real specs — horsepower,
+top speed, 0–100, drivetrain, fuel, consumption — and the tool spells out the
+concrete difference vs your booked car ("+88 hp, AWD vs RWD"). It factors in
+your Sixt loyalty status, flags what counts as a good deal, and tells you
+whether to accept, hold out, or point at a specific better car.
+
+**Ask the analyst — offline too.** Lucas now works with **no API key** out of
+the box: a witty rule-based mode covering swaps, negotiation, ACRISS codes and
+Autobahn/Blitzer humour. Add an Anthropic key for the full Claude-powered
+Lucas.
 
 **Strategy one-pager** — once a route is planned, print a clean PDF: route
 summary, your target, recommended swap stops and a full ranked table of every

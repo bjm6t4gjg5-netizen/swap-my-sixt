@@ -8,16 +8,18 @@
     clearApiKey,
     type ChatMessage
   } from "../lib/analyst";
+  import { offlineReply } from "../lib/lucasOffline";
   import { booking, target, targetLabel, activeTab } from "../lib/store";
   import { STATION_BY_ID } from "../lib/stations";
   import { CAR_CLASS_BY_ID } from "../lib/cars";
 
   const AVATAR = import.meta.env.BASE_URL + "lucas.jpg";
   const GREETING =
-    "Hey — I'm Lucas, your rental analyst. Ask me anything about your Sixt swap: which station to aim for, how to read your ACRISS code, or how to play the counter.";
+    "Hey — I'm Lucas, your rental analyst. I work without an API key, so ask away: swap strategy, ACRISS codes, the counter game, car specs, or how to dodge a Blitzer. Add an Anthropic key in the header and I get even sharper.";
 
   let open = false;
   let keySet = getApiKey().length > 0;
+  let showKeyPanel = false;
   let keyInput = "";
   let messages: ChatMessage[] = [];
   let input = "";
@@ -37,13 +39,14 @@
       ? STATION_BY_ID[b.pickupStationId]?.name
       : undefined;
     const car = b.bookedExample?.trim();
-    const parts = [
+    return [
       car ? `${car} (booked class: ${cls})` : `booked class: ${cls}`,
       st ? `pick-up at ${st}` : "",
       b.pickupDate ? `on ${b.pickupDate}${b.pickupTime ? " " + b.pickupTime : ""}` : "",
-      b.actualBrand ? `assigned car at counter: ${b.actualBrand} ${b.actualModel}` : ""
-    ].filter(Boolean);
-    return parts.join(", ");
+      b.actualBrand ? `assigned at counter: ${b.actualBrand} ${b.actualModel}` : ""
+    ]
+      .filter(Boolean)
+      .join(", ");
   }
 
   async function scrollDown() {
@@ -56,29 +59,39 @@
     setApiKey(keyInput);
     keySet = true;
     keyInput = "";
+    showKeyPanel = false;
     error = "";
   }
   function forgetKey() {
     clearApiKey();
     keySet = false;
-    messages = [];
+    showKeyPanel = false;
   }
 
   async function send() {
     const text = input.trim();
-    if (!text || busy || !keySet) return;
+    if (!text || busy) return;
     input = "";
     error = "";
     messages = [...messages, { role: "user", content: text }];
     busy = true;
     scrollDown();
     try {
-      const sys = buildSystemPrompt({
-        booking: bookingSummary(),
-        target: targetLabel($target)
-      });
-      const reply = await askLucas(messages, sys);
-      messages = [...messages, { role: "assistant", content: reply }];
+      if (keySet) {
+        const sys = buildSystemPrompt({
+          booking: bookingSummary(),
+          target: targetLabel($target)
+        });
+        const reply = await askLucas(messages, sys);
+        messages = [...messages, { role: "assistant", content: reply }];
+      } else {
+        await new Promise((r) => setTimeout(r, 430));
+        const reply = offlineReply(text, {
+          booking: bookingSummary(),
+          target: targetLabel($target)
+        });
+        messages = [...messages, { role: "assistant", content: reply }];
+      }
     } catch (e) {
       error = (e as Error).message;
     } finally {
@@ -100,7 +113,6 @@
   }
 </script>
 
-<!-- Floating bubble -->
 {#if !open}
   <button
     class="fab"
@@ -119,7 +131,6 @@
   </button>
 {/if}
 
-<!-- Chat panel -->
 {#if open}
   <div class="panel">
     <header class="p-head">
@@ -131,117 +142,108 @@
         {/if}
       </span>
       <div class="p-id">
-        <div class="p-name">Lucas</div>
-        <div class="p-role">Ask the analyst</div>
+        <div class="p-name">Lucas · the analyst</div>
+        <div class="p-role">
+          {keySet ? "Powered by Claude" : "Offline mode — no key needed"}
+        </div>
       </div>
-      {#if keySet}
-        <button class="p-mini" on:click={forgetKey} title="Disconnect API key">Key</button>
-      {/if}
+      <button
+        class="p-mini"
+        on:click={() => (keySet ? forgetKey() : (showKeyPanel = !showKeyPanel))}
+        title={keySet ? "Disconnect API key" : "Connect an API key"}
+      >
+        {keySet ? "Key ✓" : "+ Key"}
+      </button>
       <button class="p-close" on:click={() => (open = false)} aria-label="Close">×</button>
     </header>
 
-    {#if !keySet}
-      <!-- API key setup -->
-      <div class="setup">
-        <div class="setup-av">
-          {#if avatarOk}
-            <img src={AVATAR} alt="Lucas" on:error={() => (avatarOk = false)} />
-          {:else}
-            <span class="mono big">L</span>
-          {/if}
-        </div>
-        <h3>Connect to chat with Lucas</h3>
+    {#if showKeyPanel && !keySet}
+      <div class="keycard">
         <p>
-          Lucas runs on Anthropic's Claude. Paste an API key to start — it's
-          stored <b>only in this browser</b> and never uploaded or committed.
+          Optional: paste an Anthropic API key for the full Claude-powered
+          Lucas. It's stored <b>only in this browser</b>, never uploaded.
         </p>
         <input
-          class="key-input"
           type="password"
           placeholder="sk-ant-api03-…"
           bind:value={keyInput}
           on:keydown={(e) => e.key === "Enter" && connect()}
         />
-        <button class="connect" on:click={connect} disabled={!keyInput.trim()}>
-          Connect
-        </button>
-        <p class="fineprint">
-          Get a key at console.anthropic.com → API Keys. Calls are billed to
-          your Anthropic account.
-        </p>
-      </div>
-    {:else}
-      <!-- conversation -->
-      <div class="messages" bind:this={msgEl}>
-        <div class="msg lucas">
-          <span class="m-av">
-            {#if avatarOk}
-              <img src={AVATAR} alt="Lucas" on:error={() => (avatarOk = false)} />
-            {:else}<span class="mono sm">L</span>{/if}
-          </span>
-          <div class="bubble">{GREETING}</div>
+        <div class="keycard-row">
+          <button class="kc-skip" on:click={() => (showKeyPanel = false)}>
+            Stay offline
+          </button>
+          <button class="kc-go" on:click={connect} disabled={!keyInput.trim()}>
+            Connect
+          </button>
         </div>
+      </div>
+    {/if}
 
-        {#each messages as m}
-          {#if m.role === "assistant"}
-            <div class="msg lucas">
-              <span class="m-av">
-                {#if avatarOk}
-                  <img src={AVATAR} alt="Lucas" on:error={() => (avatarOk = false)} />
-                {:else}<span class="mono sm">L</span>{/if}
-              </span>
-              <div class="bubble">{m.content}</div>
-            </div>
-          {:else}
-            <div class="msg me">
-              <div class="bubble">{m.content}</div>
-            </div>
-          {/if}
-        {/each}
+    <div class="messages" bind:this={msgEl}>
+      <div class="msg lucas">
+        <span class="m-av">
+          {#if avatarOk}
+            <img src={AVATAR} alt="Lucas" on:error={() => (avatarOk = false)} />
+          {:else}<span class="mono sm">L</span>{/if}
+        </span>
+        <div class="bubble">{GREETING}</div>
+      </div>
 
-        {#if busy}
+      {#each messages as m}
+        {#if m.role === "assistant"}
           <div class="msg lucas">
             <span class="m-av">
               {#if avatarOk}
                 <img src={AVATAR} alt="Lucas" on:error={() => (avatarOk = false)} />
               {:else}<span class="mono sm">L</span>{/if}
             </span>
-            <div class="bubble typing">
-              <span></span><span></span><span></span>
-            </div>
+            <div class="bubble">{m.content}</div>
           </div>
+        {:else}
+          <div class="msg me"><div class="bubble">{m.content}</div></div>
         {/if}
+      {/each}
 
-        {#if error}
-          <div class="err">{error}</div>
-        {/if}
-      </div>
+      {#if busy}
+        <div class="msg lucas">
+          <span class="m-av">
+            {#if avatarOk}
+              <img src={AVATAR} alt="Lucas" on:error={() => (avatarOk = false)} />
+            {:else}<span class="mono sm">L</span>{/if}
+          </span>
+          <div class="bubble typing"><span></span><span></span><span></span></div>
+        </div>
+      {/if}
 
-      <div class="composer">
-        <input
-          type="text"
-          placeholder="Ask Lucas anything…"
-          bind:value={input}
-          on:keydown={onKeydown}
-          disabled={busy}
-        />
-        <button
-          class="send"
-          on:click={send}
-          disabled={busy || !input.trim()}
-          aria-label="Send"
-        >
-          <svg viewBox="0 0 24 24" width="18" height="18">
-            <path d="M4 12l16-8-7 16-2-7-7-1z" fill="currentColor" />
-          </svg>
-        </button>
-      </div>
-    {/if}
+      {#if error}
+        <div class="err">{error}</div>
+      {/if}
+    </div>
+
+    <div class="composer">
+      <input
+        type="text"
+        placeholder="Ask Lucas anything…"
+        bind:value={input}
+        on:keydown={onKeydown}
+        disabled={busy}
+      />
+      <button
+        class="send"
+        on:click={send}
+        disabled={busy || !input.trim()}
+        aria-label="Send"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18">
+          <path d="M4 12l16-8-7 16-2-7-7-1z" fill="currentColor" />
+        </svg>
+      </button>
+    </div>
   </div>
 {/if}
 
 <style>
-  /* ---------- floating bubble ---------- */
   .fab {
     position: fixed;
     right: 14px;
@@ -260,8 +262,7 @@
   .fab-label { font-size: 13.5px; font-weight: 700; color: var(--text); }
   .fab-av,
   .p-av,
-  .m-av,
-  .setup-av {
+  .m-av {
     border-radius: 50%;
     overflow: hidden;
     background: linear-gradient(135deg, #ff7a1a, var(--orange-dark));
@@ -272,13 +273,10 @@
   .fab-av { width: 38px; height: 38px; }
   .fab-av img,
   .p-av img,
-  .m-av img,
-  .setup-av img { width: 100%; height: 100%; object-fit: cover; }
+  .m-av img { width: 100%; height: 100%; object-fit: cover; }
   .mono { color: white; font-weight: 800; font-size: 16px; }
   .mono.sm { font-size: 12px; }
-  .mono.big { font-size: 30px; }
 
-  /* ---------- panel ---------- */
   .panel {
     position: fixed;
     right: 12px;
@@ -305,15 +303,15 @@
   }
   .p-av { width: 38px; height: 38px; }
   .p-id { flex: 1; min-width: 0; line-height: 1.15; }
-  .p-name { font-size: 15px; font-weight: 800; }
-  .p-role { font-size: 11.5px; opacity: 0.9; }
+  .p-name { font-size: 14.5px; font-weight: 800; }
+  .p-role { font-size: 11px; opacity: 0.9; }
   .p-mini {
     border: none;
     background: rgba(255, 255, 255, 0.22);
     color: white;
     font-size: 11px;
     font-weight: 700;
-    padding: 5px 9px;
+    padding: 6px 9px;
     border-radius: 8px;
   }
   .p-close {
@@ -327,55 +325,42 @@
     line-height: 1;
   }
 
-  /* ---------- setup ---------- */
-  .setup {
-    flex: 1;
-    overflow-y: auto;
-    padding: 22px 18px;
-    text-align: center;
+  .keycard {
+    background: var(--blue-soft);
+    padding: 12px;
+    flex-shrink: 0;
   }
-  .setup-av {
-    width: 64px;
-    height: 64px;
-    margin: 0 auto 12px;
-  }
-  .setup h3 { margin: 0 0 6px; font-size: 17px; font-weight: 800; }
-  .setup p {
-    margin: 0 0 12px;
-    font-size: 13px;
+  .keycard p {
+    margin: 0 0 8px;
+    font-size: 12px;
     color: var(--text-2);
     line-height: 1.5;
   }
-  .key-input {
+  .keycard input {
     width: 100%;
     border: 1px solid var(--line);
-    border-radius: 11px;
-    padding: 11px 12px;
-    font-size: 14px;
+    border-radius: 9px;
+    padding: 9px 11px;
+    font-size: 13px;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     outline: none;
-    margin-bottom: 9px;
+    margin-bottom: 8px;
   }
-  .key-input:focus { border-color: var(--blue); }
-  .connect {
-    width: 100%;
+  .keycard input:focus { border-color: var(--blue); }
+  .keycard-row { display: flex; gap: 8px; }
+  .kc-skip,
+  .kc-go {
+    flex: 1;
     border: none;
-    background: var(--blue);
-    color: white;
-    font-size: 15px;
+    border-radius: 9px;
+    padding: 9px;
+    font-size: 13px;
     font-weight: 700;
-    padding: 12px;
-    border-radius: 12px;
   }
-  .connect:disabled { background: var(--muted); }
-  .fineprint {
-    margin: 12px 0 0;
-    font-size: 11px;
-    color: var(--muted);
-    line-height: 1.5;
-  }
+  .kc-skip { background: var(--surface-2); color: var(--text); }
+  .kc-go { background: var(--blue); color: white; }
+  .kc-go:disabled { background: var(--muted); }
 
-  /* ---------- messages ---------- */
   .messages {
     flex: 1;
     overflow-y: auto;
@@ -433,7 +418,6 @@
     padding: 9px 11px;
   }
 
-  /* ---------- composer ---------- */
   .composer {
     display: flex;
     gap: 8px;
