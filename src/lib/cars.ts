@@ -1,4 +1,5 @@
-import type { CarClass, CarClassId, CarModel } from "./types";
+import type { BodyShape, CarClass, CarClassId, CarModel } from "./types";
+import { carBody } from "./carVisuals";
 
 // Sixt car classes, roughly ordered from smallest/cheapest to largest/priciest.
 export const CAR_CLASSES: CarClass[] = [
@@ -55,29 +56,37 @@ export const CAR_MODELS: CarModel[] = [
   { brand: "Mazda", model: "3", classId: "compact" },
 
   // Mid-size
-  { brand: "Volkswagen", model: "Golf Variant", classId: "midsize" },
+  { brand: "Volkswagen", model: "Golf Variant", classId: "midsize", body: "wagon" },
   { brand: "Skoda", model: "Octavia", classId: "midsize" },
   { brand: "BMW", model: "2 Series Active Tourer", classId: "midsize" },
   { brand: "Mercedes-Benz", model: "B-Class", classId: "midsize" },
-  { brand: "Ford", model: "Focus Estate", classId: "midsize" },
+  { brand: "Ford", model: "Focus Estate", classId: "midsize", body: "wagon" },
 
   // Intermediate
-  { brand: "Volkswagen", model: "Passat", classId: "intermediate" },
+  { brand: "Volkswagen", model: "Passat", classId: "intermediate", body: "sedan" },
+  { brand: "Volkswagen", model: "Passat Variant", classId: "intermediate", body: "wagon" },
   { brand: "Skoda", model: "Superb", classId: "intermediate" },
+  { brand: "Skoda", model: "Superb Combi", classId: "intermediate", body: "wagon" },
   { brand: "Opel", model: "Insignia", classId: "intermediate" },
   { brand: "Ford", model: "Mondeo", classId: "intermediate" },
 
   // Premium
-  { brand: "BMW", model: "3 Series", classId: "premium" },
-  { brand: "Mercedes-Benz", model: "C-Class", classId: "premium" },
-  { brand: "Audi", model: "A4", classId: "premium" },
+  { brand: "BMW", model: "3 Series Limousine", classId: "premium", body: "sedan" },
+  { brand: "BMW", model: "3 Series Touring", classId: "premium", body: "wagon" },
+  { brand: "Mercedes-Benz", model: "C-Class", classId: "premium", body: "sedan" },
+  { brand: "Mercedes-Benz", model: "C-Class Estate", classId: "premium", body: "wagon" },
+  { brand: "Audi", model: "A4 Limousine", classId: "premium", body: "sedan" },
+  { brand: "Audi", model: "A4 Avant", classId: "premium", body: "wagon" },
   { brand: "BMW", model: "4 Series Gran Coupé", classId: "premium" },
   { brand: "Jaguar", model: "XE", classId: "premium" },
 
   // Premium Plus
-  { brand: "BMW", model: "5 Series", classId: "premiumPlus" },
-  { brand: "Mercedes-Benz", model: "E-Class", classId: "premiumPlus" },
-  { brand: "Audi", model: "A6", classId: "premiumPlus" },
+  { brand: "BMW", model: "5 Series Limousine", classId: "premiumPlus", body: "sedan" },
+  { brand: "BMW", model: "5 Series Touring", classId: "premiumPlus", body: "wagon" },
+  { brand: "Mercedes-Benz", model: "E-Class", classId: "premiumPlus", body: "sedan" },
+  { brand: "Mercedes-Benz", model: "E-Class Estate", classId: "premiumPlus", body: "wagon" },
+  { brand: "Audi", model: "A6 Limousine", classId: "premiumPlus", body: "sedan" },
+  { brand: "Audi", model: "A6 Avant", classId: "premiumPlus", body: "wagon" },
   { brand: "BMW", model: "6 Series Gran Turismo", classId: "premiumPlus" },
 
   // Luxury
@@ -177,13 +186,45 @@ export function modelsInClass(classId: CarClassId): CarModel[] {
   return CAR_MODELS.filter((m) => m.classId === classId);
 }
 
+/** The silhouette a model actually has (own override, else the class default). */
+export function effectiveBody(m: CarModel): BodyShape {
+  return m.body ?? carBody(m.classId);
+}
+
+// Body-type search keywords, incl. German terms (Limousine, Kombi, Avant…).
+const BODY_KEYWORDS: Record<string, BodyShape> = {
+  limousine: "sedan", limo: "sedan", sedan: "sedan", saloon: "sedan",
+  stufenheck: "sedan", notchback: "sedan",
+  avant: "wagon", kombi: "wagon", combi: "wagon", estate: "wagon",
+  wagon: "wagon", touring: "wagon", variant: "wagon", caravan: "wagon",
+  suv: "suv", crossover: "suv", geländewagen: "suv", gelaendewagen: "suv",
+  offroad: "suv", "4x4": "suv",
+  coupe: "coupe", "coupé": "coupe",
+  cabrio: "convertible", cabriolet: "convertible", convertible: "convertible",
+  roadster: "convertible", spider: "convertible", spyder: "convertible",
+  van: "van", bus: "van", transporter: "van", multivan: "van", mpv: "van",
+  hatch: "hatch", hatchback: "hatch", kleinwagen: "hatch", schrägheck: "hatch"
+};
+
+/**
+ * Searches models by brand/model text and by body-type keywords
+ * (e.g. "limousine", "avant", "kombi", "cabrio").
+ */
 export function searchCars(query: string): CarModel[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  return CAR_MODELS.filter(
-    (m) =>
-      m.brand.toLowerCase().includes(q) ||
-      m.model.toLowerCase().includes(q) ||
-      `${m.brand} ${m.model}`.toLowerCase().includes(q)
-  );
+  const words = q.split(/\s+/).filter(Boolean);
+  const bodyWords = words.filter((w) => BODY_KEYWORDS[w]);
+  const textWords = words.filter((w) => !BODY_KEYWORDS[w]);
+  const wantBodies = bodyWords.map((w) => BODY_KEYWORDS[w]);
+
+  return CAR_MODELS.filter((m) => {
+    const hay = `${m.brand} ${m.model}`.toLowerCase();
+    if (hay.includes(q)) return true;
+    if (words.length === 0) return false;
+    const textOk = textWords.every((w) => hay.includes(w));
+    const bodyOk =
+      wantBodies.length === 0 || wantBodies.includes(effectiveBody(m));
+    return textOk && bodyOk;
+  });
 }

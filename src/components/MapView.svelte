@@ -7,6 +7,7 @@
   import StationListItem from "./StationListItem.svelte";
   import StationDetail from "./StationDetail.svelte";
   import StrategySheet from "./StrategySheet.svelte";
+  import MapsMenu from "./MapsMenu.svelte";
   import { STATIONS } from "../lib/stations";
   import { fetchRoute } from "../lib/routing";
   import { stationsAlongRoute, verdict } from "../lib/heuristic";
@@ -349,32 +350,13 @@
     map.flyTo([s.lat, s.lng], 12, { duration: 0.5 });
   }
 
-  /* ---------- start real navigation ---------- */
-  // Hands the route to the device's native maps app for true turn-by-turn
-  // (with voice, traffic, re-routing). The Sixt strategy lives in the
-  // printable one-pager, which you keep alongside.
-  function startNavigation() {
-    if (!origin || !dest) return;
-    const isApple = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
-    let url: string;
-    if (isApple) {
-      // Apple Maps web URL takes a single destination — if a swap stop is
-      // chosen, route there first (that's the actionable goal).
-      const d = viaStation ?? dest;
-      url =
-        `https://maps.apple.com/?saddr=${origin.lat},${origin.lng}` +
-        `&daddr=${d.lat},${d.lng}&dirflg=d`;
-    } else {
-      const wp = viaStation
-        ? `&waypoints=${viaStation.lat},${viaStation.lng}`
-        : "";
-      url =
-        `https://www.google.com/maps/dir/?api=1` +
-        `&origin=${origin.lat},${origin.lng}` +
-        `&destination=${dest.lat},${dest.lng}${wp}&travelmode=driving`;
-    }
-    window.open(url, "_blank", "noopener");
-  }
+  /* ---------- send the next stop to a maps app ---------- */
+  // The next stop is the chosen swap station if there is one, else the
+  // destination. The MapsMenu offers Apple Maps, Google Maps or Share/AirDrop.
+  let showMapsMenu = false;
+  $: nextStopPoint = viaStation
+    ? { lat: viaStation.lat, lng: viaStation.lng, label: viaStation.name }
+    : dest;
 </script>
 
 <div class="mapview">
@@ -438,11 +420,11 @@
           {/if}
         </div>
         {#if route}
-          <button class="go" on:click={startNavigation}>
+          <button class="go" on:click={() => (showMapsMenu = true)}>
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <path d="M3 11l18-8-8 18-2-8-8-2z" fill="currentColor" />
             </svg>
-            Start
+            Send to Maps
           </button>
         {/if}
       </div>
@@ -512,6 +494,17 @@
       target={$target}
       {viaStation}
       on:close={() => (showStrategy = false)}
+    />
+  {/if}
+
+  {#if showMapsMenu && nextStopPoint}
+    <MapsMenu
+      lat={nextStopPoint.lat}
+      lng={nextStopPoint.lng}
+      label={nextStopPoint.label}
+      originLat={origin?.lat ?? null}
+      originLng={origin?.lng ?? null}
+      on:close={() => (showMapsMenu = false)}
     />
   {/if}
 </div>
@@ -653,7 +646,7 @@
     border-radius: 7px;
   }
 
-  @media (min-width: 900px) {
+  @media (min-width: 760px) {
     .top { width: 388px; right: auto; }
     .fab { bottom: 24px; right: 24px; }
     .detail-card { left: 14px; right: auto; width: 388px; bottom: 14px; }

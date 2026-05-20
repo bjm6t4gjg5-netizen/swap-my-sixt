@@ -118,13 +118,14 @@
       };
     });
     if (anchor) {
+      // nearest-first so close branches always show, even low-scoring ones
       list = list
-        .filter((s) => s.fromRouteKm <= 180 && s.id !== current!.pickupStationId)
-        .sort((a, b) => b.score - a.score);
+        .filter((s) => s.fromRouteKm <= 220 && s.id !== current!.pickupStationId)
+        .sort((a, b) => a.fromRouteKm - b.fromRouteKm);
     } else {
       list = list.sort((a, b) => b.score - a.score);
     }
-    return list.slice(0, 8);
+    return list.slice(0, 14);
   })();
 
   function originPoint() {
@@ -256,6 +257,20 @@
     if (d > 0) return { sym: "▲", cls: "up", txt: `+${d}` };
     if (d < 0) return { sym: "▼", cls: "down", txt: `${d}` };
     return { sym: "=", cls: "same", txt: "same" };
+  }
+
+  /** Plain-language reason for a car's tier position vs the booking. */
+  function tierReason(c: NegCar): string {
+    const label = carClassLabel(c);
+    if (!expectedClass) return label;
+    const d = carTier(c) - expectedClass.tier;
+    if (d > 0) {
+      return `${label} — ${d} tier${d > 1 ? "s" : ""} above your booked ${expectedClass.label}, so it's an upgrade`;
+    }
+    if (d < 0) {
+      return `${label} — ${-d} tier${-d > 1 ? "s" : ""} below your booked ${expectedClass.label}, so it's a downgrade`;
+    }
+    return `${label} — same tier as your booked ${expectedClass.label}`;
   }
 </script>
 
@@ -395,7 +410,7 @@
             <div class="ncar">
               <div class="ncar-info">
                 <span class="ncar-name">{c.brand} {c.model}</span>
-                <span class="ncar-class">{carClassLabel(c)}</span>
+                <span class="ncar-class">{tierReason(c)}</span>
               </div>
               <span class="delta {d.cls}">{d.sym} {d.txt}</span>
               <button
@@ -431,7 +446,7 @@
             <div class="ncar">
               <div class="ncar-info">
                 <span class="ncar-name">{c.brand} {c.model}</span>
-                <span class="ncar-class">{carClassLabel(c)}</span>
+                <span class="ncar-class">{tierReason(c)}</span>
               </div>
               <span class="delta {d.cls}">{d.sym} {d.txt}</span>
               <button
@@ -475,8 +490,8 @@
       </div>
       <p class="sec-sub">
         {anchor
-          ? `Best odds within 180 km of ${pickupStation ? pickupStation.name : "you"}.`
-          : "Set a pick-up station to rank by distance."}
+          ? `Nearest branches to ${pickupStation ? pickupStation.name : "you"}, closest first — with the odds for each.`
+          : "Set a pick-up station to rank these by distance."}
         Tap to route there.
       </p>
 
@@ -899,16 +914,22 @@
 
   .ncar {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     background: var(--surface);
     border-radius: 10px;
-    padding: 8px 10px;
+    padding: 9px 10px;
     margin-bottom: 6px;
   }
   .ncar-info { flex: 1; min-width: 0; }
-  .ncar-name { font-size: 13.5px; font-weight: 600; display: block; }
-  .ncar-class { font-size: 11px; color: var(--muted); }
+  .ncar-name { font-size: 13.5px; font-weight: 700; display: block; }
+  .ncar-class {
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.4;
+    margin-top: 1px;
+    display: block;
+  }
   .delta {
     flex-shrink: 0;
     font-size: 11px;

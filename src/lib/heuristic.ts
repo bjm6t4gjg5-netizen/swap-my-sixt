@@ -139,7 +139,9 @@ export function stationsAlongRoute(
   if (coords.length < 2) return [];
 
   const routeKm = route.distance / 1000;
-  const corridorKm = clamp(routeKm / 60, 2, 8);
+  // corridor half-width — generous enough to include branches a short
+  // detour off the route, scaled to trip length
+  const corridorKm = clamp(routeKm / 42, 6, 24);
 
   // cumulative km along the polyline
   const cum: number[] = [0];

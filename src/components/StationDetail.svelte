@@ -7,6 +7,10 @@
   import { COUNTRY_NAMES } from "../lib/stations";
   import { formatKm } from "../lib/geo";
   import { targetClassId, type Target } from "../lib/store";
+  import { sixtPhone, sixtPhoneDisplay, sixtSiteUrl } from "../lib/sixt";
+  import MapsMenu from "./MapsMenu.svelte";
+
+  let showMaps = false;
 
   export let station: ScoredStation;
   export let target: Target;
@@ -44,23 +48,25 @@
     return `A small or off-hours branch — ${wanted} is unlikely to be sitting ready. Skip unless you have called and confirmed.`;
   }
 
-  function openInMaps() {
-    const isApple = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
-    const url = isApple
-      ? `https://maps.apple.com/?daddr=${station.lat},${station.lng}&q=${encodeURIComponent(station.name)}`
-      : `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
-    window.open(url, "_blank", "noopener");
+  $: centralPhone = sixtPhone(station.country);
+  $: centralPhoneLabel = sixtPhoneDisplay(station.country);
+
+  function callSixt() {
+    if (centralPhone) {
+      window.location.href = `tel:${centralPhone}`;
+    } else {
+      // No verified central line for this country — surface the Maps listing.
+      const q = encodeURIComponent(`${station.name} ${station.addr}`);
+      window.open(
+        `https://www.google.com/maps/search/?api=1&query=${q}`,
+        "_blank",
+        "noopener"
+      );
+    }
   }
 
-  function findPhone() {
-    // Sixt has no public branch-number dataset and routes many branches
-    // through a central line. A Maps lookup surfaces the current number.
-    const q = encodeURIComponent(`${station.name} ${station.addr}`);
-    window.open(
-      `https://www.google.com/maps/search/?api=1&query=${q}`,
-      "_blank",
-      "noopener"
-    );
+  function checkLive() {
+    window.open(sixtSiteUrl(station.country), "_blank", "noopener");
   }
 </script>
 
@@ -130,16 +136,7 @@
   {/if}
 
   <div class="actions">
-    <button class="btn ghost" on:click={findPhone}>
-      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-        <path
-          d="M6.6 10.8a13 13 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.4c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.3 1z"
-          fill="currentColor"
-        />
-      </svg>
-      Phone
-    </button>
-    <button class="btn ghost" on:click={openInMaps}>Directions</button>
+    <button class="btn ghost" on:click={() => (showMaps = true)}>Send to Maps</button>
     {#if showRouteVia}
       <button class="btn primary" on:click={() => dispatch("routeVia", station)}>
         Route via here
@@ -151,11 +148,42 @@
       </button>
     {/if}
   </div>
+
+  <div class="contact-row">
+    <button class="contact-link" on:click={callSixt}>
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+        <path
+          d="M6.6 10.8a13 13 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.4c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.3 1z"
+          fill="currentColor"
+        />
+      </svg>
+      {centralPhone ? `Call Sixt · ${centralPhoneLabel}` : "Find phone number"}
+    </button>
+    <button class="contact-link" on:click={checkLive}>
+      Check live on Sixt ↗
+    </button>
+  </div>
+
   <p class="phone-note">
-    Sixt routes most branches through a central line — “Phone” opens Maps with
-    the current listed number.
+    {#if centralPhone}
+      That's Sixt's central reservation line — branches have no public direct
+      numbers. For a branch's Maps listing, use “Send to Maps”. Live car
+      availability can only be confirmed on sixt.com or by phone.
+    {:else}
+      Sixt routes most branches through a central line. Live availability can
+      only be confirmed on sixt.com or by phone.
+    {/if}
   </p>
 </div>
+
+{#if showMaps}
+  <MapsMenu
+    lat={station.lat}
+    lng={station.lng}
+    label={station.name}
+    on:close={() => (showMaps = false)}
+  />
+{/if}
 
 <style>
   .detail { padding: 14px 16px 14px; }
@@ -269,8 +297,31 @@
   .btn.primary { background: var(--blue); color: white; flex: 1.5; }
   .btn:active { transform: scale(0.97); }
 
+  .contact-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 9px;
+  }
+  .contact-link {
+    flex: 1;
+    min-width: 130px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    background: var(--surface-2);
+    border: 1px solid var(--line-soft);
+    border-radius: 9px;
+    padding: 9px 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--blue);
+  }
+  .contact-link:active { transform: scale(0.98); }
+
   .phone-note {
-    margin: 8px 2px 0;
+    margin: 9px 2px 0;
     font-size: 11px;
     color: var(--muted);
     line-height: 1.45;

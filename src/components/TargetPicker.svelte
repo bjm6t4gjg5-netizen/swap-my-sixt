@@ -313,4 +313,10 @@
     border-radius: 9px;
   }
   .none { padding: 28px; text-align: center; color: var(--muted); font-size: 14px; }
+
+  @media (min-width: 560px) {
+    .scrim { align-items: center; }
+    .sheet { border-radius: 22px; max-height: 80vh; }
+    .grid { grid-template-columns: repeat(3, 1fr); }
+  }
 </style>

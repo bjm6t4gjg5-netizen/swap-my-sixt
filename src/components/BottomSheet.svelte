@@ -90,7 +90,7 @@
     min-height: 0;
   }
 
-  @media (min-width: 900px) {
+  @media (min-width: 760px) {
     .sheet {
       left: 14px;
       right: auto;

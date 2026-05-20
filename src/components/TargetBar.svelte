@@ -7,7 +7,9 @@
   let open = false;
 
   $: thumbTint =
-    $target.kind === "any" ? "var(--surface-3)" : carColor($target.classId) + "22";
+    $target.kind === "any"
+      ? "var(--surface-3)"
+      : carColor($target.classId) + "22";
 
   function reset() {
     target.set({ kind: "any" });
@@ -41,27 +43,24 @@
         <span class="kicker">Hunting</span>
         {targetLabel($target)}
       </div>
-      <div class="sub">{targetSubLabel($target)}</div>
+      <div class="sub">{targetSubLabel($target)} · tap to change</div>
     </div>
-    <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-      <path
-        d="m8 9 4 4 4-4 M8 15l4-4 4 4"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
-    </svg>
+    {#if $target.kind === "any"}
+      <span class="chev" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="18" height="18">
+          <path d="m9 6 6 6-6 6" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </span>
+    {/if}
   </button>
 
   {#if $target.kind !== "any"}
-    <button class="reset" on:click={reset} aria-label="Reset target">
-      <svg viewBox="0 0 24 24" width="15" height="15">
+    <button class="clear" on:click={reset} aria-label="Reset to any car" title="Reset">
+      <svg viewBox="0 0 24 24" width="16" height="16">
         <path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor"
-              stroke-width="2.2" stroke-linecap="round" />
+              stroke-width="2.4" stroke-linecap="round" />
       </svg>
-      Reset
     </button>
   {/if}
 </div>
@@ -74,7 +73,10 @@
   .bar {
     display: flex;
     align-items: stretch;
-    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
   }
   .main {
     flex: 1;
@@ -82,16 +84,15 @@
     display: flex;
     align-items: center;
     gap: 11px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 13px;
+    background: transparent;
+    border: none;
     padding: 8px 10px;
     text-align: left;
   }
-  .main:active { transform: scale(0.99); }
+  .main:active { background: var(--surface-2); }
   .thumb {
-    width: 52px;
-    height: 38px;
+    width: 54px;
+    height: 40px;
     border-radius: 9px;
     flex-shrink: 0;
     display: flex;
@@ -124,20 +125,18 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .chev { color: var(--muted); flex-shrink: 0; }
+  .chev { color: var(--muted); flex-shrink: 0; display: flex; }
 
-  .reset {
+  /* clear sits inside the same pill, divided by a hairline */
+  .clear {
     flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 13px;
-    padding: 0 12px;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--text-2);
+    width: 46px;
+    border: none;
+    border-left: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    display: grid;
+    place-items: center;
   }
-  .reset:active { transform: scale(0.96); }
+  .clear:active { background: var(--surface-2); color: var(--text); }
 </style>

@@ -304,6 +304,15 @@
     line-height: 1.5;
   }
 
+  @media (max-width: 480px) {
+    .paper { padding: 22px 18px 18px; margin: 10px; }
+    .route-band { gap: 10px; }
+    .rb-stats { margin-left: 0; gap: 14px; }
+    thead th,
+    tbody td { padding: 6px 4px; }
+    .st-addr { display: none; }
+  }
+
   @media print {
     .paper {
       box-shadow: none;
@@ -312,6 +321,7 @@
       border-radius: 0;
       padding: 0;
     }
+    .st-addr { display: block !important; }
     .overlay { background: white; position: static; overflow: visible; }
   }
 </style>

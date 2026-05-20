@@ -15,6 +15,7 @@
   const WHEELS: Record<BodyShape, [number, number, number, number]> = {
     hatch: [62, 168, 101, 20],
     sedan: [64, 178, 101, 20],
+    wagon: [64, 180, 101, 20],
     suv: [64, 180, 103, 23],
     coupe: [60, 186, 103, 21],
     convertible: [60, 186, 103, 21],
@@ -51,6 +52,15 @@
     <path d="M80 58 L92 46 L116 46 L116 58 Z" fill={GLASS} />
     <path d="M122 46 L146 46 L158 58 L122 58 Z" fill={GLASS} />
     <rect x="218" y="72" width="9" height="9" rx="3" fill="#ff5a52" />
+    <ellipse cx="21" cy="82" rx="6" ry="5" fill="#fff4cf" />
+  {:else if shape === "wagon"}
+    <path
+      d="M16 101 L16 83 C16 78 19 74 25 72 L64 60 C69 49 77 43 90 41 L201 41 C212 42 219 49 222 62 L224 78 L224 101 L200 101 A24 24 0 0 0 152 101 L88 101 A24 24 0 0 0 40 101 Z"
+      fill={color}
+    />
+    <path d="M80 58 L92 46 L116 46 L116 58 Z" fill={GLASS} />
+    <path d="M122 46 L190 46 L198 58 L122 58 Z" fill={GLASS} />
+    <rect x="216" y="70" width="8" height="11" rx="3" fill="#ff5a52" />
     <ellipse cx="21" cy="82" rx="6" ry="5" fill="#fff4cf" />
   {:else if shape === "suv"}
     <path

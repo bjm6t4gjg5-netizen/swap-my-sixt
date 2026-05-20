@@ -28,6 +28,7 @@ export type CarClassId =
 export type BodyShape =
   | "hatch"
   | "sedan"
+  | "wagon"
   | "suv"
   | "coupe"
   | "convertible"

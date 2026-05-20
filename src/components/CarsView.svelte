@@ -10,9 +10,11 @@
   import { target, type Target } from "../lib/store";
   import type { CarClassId, CarModel } from "../lib/types";
   import CarArt from "./CarArt.svelte";
+  import AcrissGuide from "./AcrissGuide.svelte";
 
   let query = "";
   let openClass: CarClassId | null = null;
+  let showAcriss = false;
 
   $: results = query.trim() ? searchCars(query) : [];
   $: detail = openClass ? CAR_CLASS_BY_ID[openClass] : null;
@@ -51,6 +53,19 @@
     </p>
   </header>
 
+  <button class="acriss-link" on:click={() => (showAcriss = true)}>
+    <span class="al-ico">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" />
+        <path d="M12 11v5M12 7.5v.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+      </svg>
+    </span>
+    <span class="al-text">
+      New to <b>ACRISS / SIPP codes</b>? Learn what PDAR, EDMR… mean
+    </span>
+    <span class="al-go">›</span>
+  </button>
+
   <div class="searchbar">
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
       <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" />
@@ -58,7 +73,7 @@
     </svg>
     <input
       type="text"
-      placeholder="Search — BMW M3, Tesla, Golf…"
+      placeholder="Search — BMW M3, Avant, Cabrio…"
       bind:value={query}
     />
     {#if query}
@@ -135,6 +150,10 @@
   {/if}
 </div>
 
+{#if showAcriss}
+  <AcrissGuide on:close={() => (showAcriss = false)} />
+{/if}
+
 <!-- ============ CLASS DETAIL MODAL ============ -->
 {#if detail}
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
@@ -186,6 +205,25 @@
   .vhead h2 { margin: 2px 2px 4px; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
   .vhead p { margin: 0 2px 16px; font-size: 14px; color: var(--text-2); line-height: 1.5; }
   .vhead em { color: var(--orange-dark); font-style: normal; font-weight: 600; }
+
+  .acriss-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    background: var(--blue-soft);
+    border: none;
+    border-radius: 13px;
+    padding: 11px 13px;
+    margin-bottom: 10px;
+    color: var(--blue);
+  }
+  .acriss-link:active { transform: scale(0.99); }
+  .al-ico { flex-shrink: 0; display: grid; place-items: center; }
+  .al-text { flex: 1; font-size: 13px; color: var(--text-2); line-height: 1.4; }
+  .al-text b { color: var(--text); }
+  .al-go { font-size: 18px; color: var(--blue); flex-shrink: 0; }
 
   .searchbar {
     display: flex;
