@@ -47,11 +47,23 @@
     }, 280);
   }
 
-  function focusField(field: "origin" | "dest") {
+  function focusField(field: "origin" | "dest", ev: FocusEvent) {
     editing = field;
     suggestions = [];
-    if (field === "origin") originText = "";
-    else destText = "";
+    // prefill with the current value so the field never looks empty,
+    // and select it so typing replaces it
+    if (field === "origin") originText = origin?.label ?? "";
+    else destText = dest?.label ?? "";
+    const el = ev.currentTarget as HTMLInputElement | null;
+    if (el) requestAnimationFrame(() => el.select());
+  }
+
+  function onBlur() {
+    // delay so a click/tap on a suggestion still registers first
+    setTimeout(() => {
+      editing = null;
+      suggestions = [];
+    }, 200);
   }
 
   function pickPlace(p: Place) {
@@ -100,7 +112,8 @@
         type="text"
         placeholder="Choose start…"
         value={originDisplay}
-        on:focus={() => focusField("origin")}
+        on:focus={(e) => focusField("origin", e)}
+        on:blur={onBlur}
         on:input={(e) => onInput("origin", e.currentTarget.value)}
         autocomplete="off"
         autocapitalize="off"
@@ -118,7 +131,8 @@
         type="text"
         placeholder="Where to?"
         value={destDisplay}
-        on:focus={() => focusField("dest")}
+        on:focus={(e) => focusField("dest", e)}
+        on:blur={onBlur}
         on:input={(e) => onInput("dest", e.currentTarget.value)}
         autocomplete="off"
         autocapitalize="off"

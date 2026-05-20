@@ -1,4 +1,4 @@
-# Swap my Sixt — v3.1
+# Swap my Sixt — v3.2
 
 A navigation web app that helps you swap a Sixt rental into the car you
 actually want. Plan a route, see every Sixt station along it, and get a live
@@ -29,6 +29,18 @@ booked, with a car illustration. Add the "… or similar" example model, the
 pick-up station (searchable), dates, and the car you were actually given. The
 app shows the status — *Reserved*, *Class matched*, or *Wrong class* — and on
 a mismatch ranks the nearest stations likely to have the class you booked.
+
+**Negotiation mode** — at the counter, log every car they offer you plus any
+car you can see sitting on the lot. Each is ranked by value tier against your
+booked class (▲ upgrade / ▼ downgrade), and a live strategy line tells you
+whether to accept, hold out, or point at a specific better car and ask for it.
+
+**Strategy one-pager** — once a route is planned, print a clean PDF: route
+summary, your target, recommended swap stops and a full ranked table of every
+Sixt station along the way. A paper reference for the drive.
+
+**Start** hands the route to Apple Maps / Google Maps for real turn-by-turn
+navigation (with any chosen swap stop as a waypoint).
 
 **Cars tab** — The full Sixt class catalogue as a card grid, each class drawn
 as its own car illustration. Tap a card for the models inside, the ACRISS
@@ -77,13 +89,35 @@ The site goes live at `https://bjm6t4gjg5-netizen.github.io/swap-my-sixt/`.
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173/swap-my-sixt/
+npm run dev      # https://localhost:5173/swap-my-sixt/  + a Network URL
 npm run build    # production build into dist/
 npm run preview  # preview the production build
 npm run check    # type-check the whole project
 ```
 
 Requires Node 18+ (the CI uses Node 20).
+
+**Testing on an iPhone / iPad:** `npm run dev` prints two URLs — a `Local`
+one and a `Network` one like `https://192.168.x.x:5173/swap-my-sixt/`. Open
+the **Network** URL on any device on the same Wi-Fi. The dev server runs over
+**HTTPS** (self-signed) so geolocation works on iOS — Safari will show a
+one-time "not private" warning; tap **Show details → visit this website** to
+proceed. The certificate warning is expected for a local self-signed cert.
+
+## Troubleshooting
+
+**Deployed site shows a blank white page.** This means GitHub Pages is serving
+the raw repository source instead of the built `dist/` folder. Fix it:
+
+1. Repo **Settings → Pages → Build and deployment → Source** → set to
+   **GitHub Actions** (not "Deploy from a branch").
+2. Open the **Actions** tab and confirm the latest "Deploy to GitHub Pages"
+   run is green. If it never ran, push any commit to trigger it.
+3. The workflow now also sets `enablement: true`, so a fresh push should
+   self-correct the Pages configuration.
+
+The site only works at the `/swap-my-sixt/` path — `https://<user>.github.io/`
+without the repo name will 404. Use the full URL.
 
 ## Add to your home screen
 

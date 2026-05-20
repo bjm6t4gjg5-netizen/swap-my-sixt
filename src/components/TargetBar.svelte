@@ -29,7 +29,11 @@
           />
         </svg>
       {:else}
-        <CarArt classId={$target.classId} compact />
+        <CarArt
+          classId={$target.classId}
+          body={$target.kind === "model" ? $target.body : undefined}
+          compact
+        />
       {/if}
     </div>
     <div class="txt">

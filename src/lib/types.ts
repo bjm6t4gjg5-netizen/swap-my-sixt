@@ -24,10 +24,21 @@ export type CarClassId =
   | "sport" | "sportPlus" | "convertible"
   | "electric" | "van" | "transporter";
 
+/** Side-profile silhouette used by the CarArt illustration. */
+export type BodyShape =
+  | "hatch"
+  | "sedan"
+  | "suv"
+  | "coupe"
+  | "convertible"
+  | "van";
+
 export interface CarModel {
   brand: string;
   model: string;
   classId: CarClassId;
+  /** Overrides the class default silhouette (e.g. an SUV inside the EV class). */
+  body?: BodyShape;
   // Tag flags help when filtering
   ev?: boolean;
   awd?: boolean;
@@ -39,8 +50,17 @@ export interface CarClass {
   id: CarClassId;
   label: string;
   description: string;
+  /** Value tier, 1 (cheapest) … 10 (flagship) — drives negotiation logic. */
+  tier: number;
   /** ACRISS-style code, e.g. "EBMR", "FBAR" — informational only */
   acriss?: string;
+}
+
+/** A car logged in negotiation mode (offered, or spotted on the lot). */
+export interface NegCar {
+  brand: string;
+  model: string;
+  classId: CarClassId;
 }
 
 export interface Route {
@@ -71,4 +91,9 @@ export interface Booking {
   actualModel?: string;
   actualClassId?: CarClassId;
   notes?: string;
+  /** Negotiation mode: cars offered vs. cars spotted but not offered. */
+  negotiation?: {
+    offered: NegCar[];
+    spotted: NegCar[];
+  };
 }

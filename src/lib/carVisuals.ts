@@ -1,12 +1,6 @@
-import type { CarClassId } from "./types";
+import type { CarClassId, BodyShape } from "./types";
 
-export type BodyShape =
-  | "hatch"
-  | "sedan"
-  | "suv"
-  | "coupe"
-  | "convertible"
-  | "van";
+export type { BodyShape };
 
 /** Which silhouette to draw for each class. */
 export const BODY_OF: Record<CarClassId, BodyShape> = {

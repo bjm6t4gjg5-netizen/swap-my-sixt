@@ -25,7 +25,8 @@
       kind: "model",
       classId: m.classId,
       brand: m.brand,
-      model: m.model
+      model: m.model,
+      body: m.body
     });
   }
   function isClassTarget(t: Target, id: CarClassId): boolean {
@@ -80,7 +81,7 @@
             (e.key === "Enter" || e.key === " ") && (openClass = m.classId)}
         >
           <div class="res-art" style="background:{tint(m.classId, '14')}">
-            <CarArt classId={m.classId} compact />
+            <CarArt classId={m.classId} body={m.body} compact />
           </div>
           <div class="res-info">
             <div class="res-name">{m.brand} {m.model}</div>
@@ -154,9 +155,14 @@
         <p class="m-desc">{detail.description}</p>
 
         <div class="m-modlabel">Models in this class</div>
-        <div class="m-models">
+        <div class="m-modelgrid">
           {#each modelsInClass(detail.id) as m}
-            <span class="m-chip">{m.brand} {m.model}</span>
+            <div class="modelcard">
+              <div class="mc-art" style="background:{tint(detail.id, '14')}">
+                <CarArt classId={m.classId} body={m.body} />
+              </div>
+              <div class="mc-name">{m.brand} {m.model}</div>
+            </div>
           {/each}
         </div>
 
@@ -374,14 +380,24 @@
     color: var(--muted);
     margin-bottom: 8px;
   }
-  .m-models { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
-  .m-chip {
-    font-size: 12.5px;
-    background: var(--surface-2);
+  .m-modelgrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 9px;
+    margin-bottom: 16px;
+  }
+  .modelcard {
+    background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: 13px;
-    padding: 5px 10px;
-    color: var(--text-2);
+    overflow: hidden;
+  }
+  .mc-art { padding: 10px 10px 4px; }
+  .mc-name {
+    padding: 4px 11px 10px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
   }
   .m-target {
     width: 100%;

@@ -1,13 +1,20 @@
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { VitePWA } from "vite-plugin-pwa";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 
 // GitHub Pages serves at /swap-my-sixt/, so base must match the repo name.
 const BASE = "/swap-my-sixt/";
 
 export default defineConfig({
   base: BASE,
+  // host:true exposes the dev server on your LAN; basicSsl serves it over
+  // HTTPS so geolocation works when you open it on an iPhone / iPad.
+  server: {
+    host: true
+  },
   plugins: [
+    basicSsl(),
     svelte(),
     VitePWA({
       registerType: "autoUpdate",

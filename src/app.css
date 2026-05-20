@@ -102,3 +102,17 @@ input, select { font-family: inherit; }
 .endpoint-pin.a { background: #1c1c1e; }
 .endpoint-pin.b { background: var(--red); }
 .leaflet-div-icon { background: transparent; border: none; }
+
+/* ---- Print isolation: only the strategy one-pager prints ---- */
+@media print {
+  body * { visibility: hidden; }
+  .print-root,
+  .print-root * { visibility: visible; }
+  .print-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .no-print { display: none !important; }
+}

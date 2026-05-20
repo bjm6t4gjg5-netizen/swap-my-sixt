@@ -1,5 +1,5 @@
 import { writable, type Writable } from "svelte/store";
-import type { Booking, CarClassId, LatLng } from "./types";
+import type { Booking, BodyShape, CarClassId, LatLng } from "./types";
 import { CAR_CLASS_BY_ID } from "./cars";
 
 /** A writable store that mirrors itself into localStorage. */
@@ -33,7 +33,13 @@ export const activeTab = writable<TabId>("navigate");
 export type Target =
   | { kind: "any" }
   | { kind: "class"; classId: CarClassId }
-  | { kind: "model"; classId: CarClassId; brand: string; model: string };
+  | {
+      kind: "model";
+      classId: CarClassId;
+      brand: string;
+      model: string;
+      body?: BodyShape;
+    };
 
 export const target = persisted<Target>("sixt.target.v1", {
   kind: "class",

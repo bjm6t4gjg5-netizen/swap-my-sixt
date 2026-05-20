@@ -6,6 +6,7 @@
   import TargetBar from "./TargetBar.svelte";
   import StationListItem from "./StationListItem.svelte";
   import StationDetail from "./StationDetail.svelte";
+  import StrategySheet from "./StrategySheet.svelte";
   import { STATIONS } from "../lib/stations";
   import { fetchRoute } from "../lib/routing";
   import { stationsAlongRoute, verdict } from "../lib/heuristic";
@@ -34,10 +35,11 @@
 
   let loading = "";
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
-  let navigating = false;
-  let watchId: number | null = null;
-  let wakeLock: any = null;
   let sheetState: "collapsed" | "mid" | "full" = "mid";
+  /** Station the route currently detours through (set by "Route via here"). */
+  let viaStation: ScoredStation | null = null;
+  /** Controls the printable strategy one-pager. */
+  let showStrategy = false;
 
   // Leaflet layers we manage by hand
   let routeLine: L.Polyline | null = null;
@@ -73,7 +75,6 @@
     initMap();
     quickLocate();
     return () => {
-      stopNav();
       map?.remove();
     };
   });
@@ -204,6 +205,7 @@
     if (!origin || !dest) return;
     loading = "Calculating fastest route…";
     selected = null;
+    viaStation = null;
     try {
       route = await fetchRoute([origin, dest]);
       scored = stationsAlongRoute(route, STATIONS, targetClassId($target));
@@ -229,6 +231,7 @@
         dest
       ]);
       scored = stationsAlongRoute(route, STATIONS, targetClassId($target));
+      viaStation = station;
       drawRoute();
       drawStations();
       fitToRoute();
@@ -346,43 +349,31 @@
     map.flyTo([s.lat, s.lng], 12, { duration: 0.5 });
   }
 
-  /* ---------- navigation mode ---------- */
-  async function startNav() {
-    if (!route) return;
-    navigating = true;
-    sheetState = "collapsed";
-    if (navigator.geolocation) {
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          myLocation.set(here);
-          drawMe(here);
-          map.panTo([here.lat, here.lng], { animate: true });
-        },
-        () => {},
-        { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
-      );
+  /* ---------- start real navigation ---------- */
+  // Hands the route to the device's native maps app for true turn-by-turn
+  // (with voice, traffic, re-routing). The Sixt strategy lives in the
+  // printable one-pager, which you keep alongside.
+  function startNavigation() {
+    if (!origin || !dest) return;
+    const isApple = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
+    let url: string;
+    if (isApple) {
+      // Apple Maps web URL takes a single destination — if a swap stop is
+      // chosen, route there first (that's the actionable goal).
+      const d = viaStation ?? dest;
+      url =
+        `https://maps.apple.com/?saddr=${origin.lat},${origin.lng}` +
+        `&daddr=${d.lat},${d.lng}&dirflg=d`;
+    } else {
+      const wp = viaStation
+        ? `&waypoints=${viaStation.lat},${viaStation.lng}`
+        : "";
+      url =
+        `https://www.google.com/maps/dir/?api=1` +
+        `&origin=${origin.lat},${origin.lng}` +
+        `&destination=${dest.lat},${dest.lng}${wp}&travelmode=driving`;
     }
-    const ml = $myLocation;
-    if (ml) map.setView([ml.lat, ml.lng], 15);
-    try {
-      if ("wakeLock" in navigator) {
-        wakeLock = await (navigator as any).wakeLock.request("screen");
-      }
-    } catch {}
-  }
-
-  function stopNav() {
-    navigating = false;
-    sheetState = "mid";
-    if (watchId != null) {
-      navigator.geolocation.clearWatch(watchId);
-      watchId = null;
-    }
-    if (wakeLock) {
-      wakeLock.release?.();
-      wakeLock = null;
-    }
+    window.open(url, "_blank", "noopener");
   }
 </script>
 
@@ -447,17 +438,34 @@
           {/if}
         </div>
         {#if route}
-          {#if navigating}
-            <button class="go end" on:click={stopNav}>End</button>
-          {:else}
-            <button class="go" on:click={startNav}>GO</button>
-          {/if}
+          <button class="go" on:click={startNavigation}>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M3 11l18-8-8 18-2-8-8-2z" fill="currentColor" />
+            </svg>
+            Start
+          </button>
         {/if}
       </div>
 
       <div class="targetwrap">
         <TargetBar />
       </div>
+
+      {#if route && scored.length}
+        <button class="strategy-btn" on:click={() => (showStrategy = true)}>
+          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+            <path
+              d="M7 3h7l5 5v13H7zM14 3v5h5M9 13h7M9 17h7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          Print swap strategy one-pager
+        </button>
+      {/if}
 
       <div class="list">
         {#if !route}
@@ -493,6 +501,18 @@
         {/if}
       </div>
     </BottomSheet>
+  {/if}
+
+  {#if showStrategy && route && origin && dest}
+    <StrategySheet
+      {origin}
+      {dest}
+      {route}
+      stations={scored}
+      target={$target}
+      {viaStation}
+      on:close={() => (showStrategy = false)}
+    />
   {/if}
 </div>
 
@@ -578,22 +598,38 @@
 
   .go {
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     background: var(--blue);
     color: white;
     border: none;
     border-radius: 22px;
-    padding: 11px 22px;
+    padding: 11px 20px;
     font-size: 15px;
     font-weight: 700;
     box-shadow: 0 3px 10px rgba(0, 122, 255, 0.32);
   }
-  .go.end {
-    background: var(--red);
-    box-shadow: 0 3px 10px rgba(255, 59, 48, 0.32);
-  }
   .go:active { transform: scale(0.96); }
 
-  .targetwrap { padding: 2px 14px 12px; }
+  .targetwrap { padding: 2px 14px 10px; }
+
+  .strategy-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: calc(100% - 28px);
+    margin: 0 14px 12px;
+    padding: 11px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .strategy-btn:active { transform: scale(0.99); }
   .list { padding-bottom: 20px; border-top: 1px solid var(--line-soft); }
 
   .empty { padding: 26px 22px; text-align: center; }

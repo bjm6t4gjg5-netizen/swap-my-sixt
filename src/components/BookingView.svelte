@@ -5,7 +5,12 @@
   import { computeScore } from "../lib/heuristic";
   import { haversineKm } from "../lib/geo";
   import { booking, myLocation, requestNavigation } from "../lib/store";
-  import type { Booking, CarModel, ScoredStation } from "../lib/types";
+  import type {
+    Booking,
+    CarModel,
+    NegCar,
+    ScoredStation
+  } from "../lib/types";
   import ProbabilityBadge from "./ProbabilityBadge.svelte";
   import StationSearchField from "./StationSearchField.svelte";
   import CarArt from "./CarArt.svelte";
@@ -149,13 +154,131 @@
       target: { kind: "class", classId: current.expectedClassId }
     });
   }
+
+  /* ---------- negotiation mode ---------- */
+  let offeredQuery = "";
+  let spottedQuery = "";
+  $: offeredMatches = offeredQuery.trim()
+    ? searchCars(offeredQuery).slice(0, 5)
+    : [];
+  $: spottedMatches = spottedQuery.trim()
+    ? searchCars(spottedQuery).slice(0, 5)
+    : [];
+
+  $: neg = current?.negotiation ?? { offered: [], spotted: [] };
+  $: bookedTier = expectedClass ? expectedClass.tier : 0;
+
+  function carTier(c: NegCar): number {
+    return CAR_CLASS_BY_ID[c.classId].tier;
+  }
+  function carClassLabel(c: NegCar): string {
+    return CAR_CLASS_BY_ID[c.classId].label;
+  }
+  function bestOf(list: NegCar[]): NegCar | null {
+    if (!list.length) return null;
+    return list.reduce((a, b) => (carTier(b) > carTier(a) ? b : a));
+  }
+
+  function addNegCar(which: "offered" | "spotted", m: CarModel) {
+    if (!current) return;
+    const base = current.negotiation ?? { offered: [], spotted: [] };
+    const next = { offered: [...base.offered], spotted: [...base.spotted] };
+    next[which] = [
+      ...next[which],
+      { brand: m.brand, model: m.model, classId: m.classId }
+    ];
+    booking.set({ ...current, negotiation: next });
+    if (which === "offered") offeredQuery = "";
+    else spottedQuery = "";
+  }
+  function removeNegCar(which: "offered" | "spotted", idx: number) {
+    if (!current) return;
+    const base = current.negotiation ?? { offered: [], spotted: [] };
+    const next = { offered: [...base.offered], spotted: [...base.spotted] };
+    next[which].splice(idx, 1);
+    booking.set({ ...current, negotiation: next });
+  }
+
+  type NegTone = "good" | "warn" | "bad" | "info";
+  $: negVerdict = ((): { tone: NegTone; text: string } => {
+    if (!current || !expectedClass) return { tone: "info", text: "" };
+    const bt = expectedClass.tier;
+    const bestO = bestOf(neg.offered);
+    const bestS = bestOf(neg.spotted);
+
+    if (!bestO && !bestS) {
+      return {
+        tone: "info",
+        text: "Log what the desk offers you, plus anything you can see parked on the lot. I'll tell you whether to switch or hold out."
+      };
+    }
+    if (
+      bestS &&
+      carTier(bestS) > bt &&
+      (!bestO || carTier(bestS) > carTier(bestO))
+    ) {
+      const overWhat = bestO
+        ? `their best offer (${bestO.brand} ${bestO.model})`
+        : `your booked ${expectedClass.label}`;
+      const gap = carTier(bestS) - (bestO ? carTier(bestO) : bt);
+      return {
+        tone: "good",
+        text: `Negotiate hard: the ${bestS.brand} ${bestS.model} on the lot is ${gap} tier${gap > 1 ? "s" : ""} above ${overWhat}. Ask for it by name and mention you can see it's available — an idle car is easier to give away than a discount.`
+      };
+    }
+    if (bestO) {
+      const d = carTier(bestO) - bt;
+      if (d > 0) {
+        return {
+          tone: "good",
+          text: `Take it. Their best offer — ${bestO.brand} ${bestO.model} — is a ${d}-tier upgrade on your booked ${expectedClass.label}. No reason to hold out unless you've spotted something better.`
+        };
+      }
+      if (d === 0) {
+        return {
+          tone: "warn",
+          text: `${bestO.brand} ${bestO.model} matches your booked ${expectedClass.label} — fair, but no upgrade. Scan the lot first; if something better is sitting idle, ask for it.`
+        };
+      }
+      return {
+        tone: "bad",
+        text: `Push back. Everything offered is below your booked ${expectedClass.label} — you're entitled to at least that class. Decline the downgrade and ask them to honour the booking or upgrade you.`
+      };
+    }
+    return {
+      tone: "info",
+      text: `No offer logged yet. Best on the lot is the ${bestS!.brand} ${bestS!.model} — when the desk makes an offer, compare it against that.`
+    };
+  })();
+
+  function tierDelta(c: NegCar): { sym: string; cls: string; txt: string } {
+    const d = carTier(c) - bookedTier;
+    if (d > 0) return { sym: "▲", cls: "up", txt: `+${d}` };
+    if (d < 0) return { sym: "▼", cls: "down", txt: `${d}` };
+    return { sym: "=", cls: "same", txt: "same" };
+  }
 </script>
 
 <div class="view">
   {#if mode === "view" && current}
     <!-- ===================== BOOKING CARD ===================== -->
     <header class="vhead">
-      <h2>Your booking</h2>
+      <div class="vhead-row">
+        <h2>Your booking</h2>
+        <button class="edit-btn" on:click={startEdit}>
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            <path
+              d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          Edit
+        </button>
+      </div>
       <p>What Sixt is holding for you — and your move if it's the wrong car.</p>
     </header>
 
@@ -253,6 +376,97 @@
       {/if}
     </div>
 
+    <!-- ===================== NEGOTIATION ===================== -->
+    <div class="neg">
+      <div class="neg-top">
+        <h3>Negotiation helper</h3>
+        <p>
+          At the counter — log what they offer you and any cars you can see on
+          the lot. Everything is ranked against your booked
+          <b>{expectedClass?.label}</b>.
+        </p>
+      </div>
+
+      <div class="neg-grid">
+        <div class="neg-col">
+          <div class="nc-head offered">Offered to me</div>
+          {#each neg.offered as c, i}
+            {@const d = tierDelta(c)}
+            <div class="ncar">
+              <div class="ncar-info">
+                <span class="ncar-name">{c.brand} {c.model}</span>
+                <span class="ncar-class">{carClassLabel(c)}</span>
+              </div>
+              <span class="delta {d.cls}">{d.sym} {d.txt}</span>
+              <button
+                class="ncar-x"
+                on:click={() => removeNegCar("offered", i)}
+                aria-label="Remove">×</button>
+            </div>
+          {/each}
+          <div class="addbox">
+            <input
+              type="text"
+              placeholder="Add a car they offered…"
+              bind:value={offeredQuery}
+              autocomplete="off"
+            />
+            {#if offeredMatches.length}
+              <div class="adddrop">
+                {#each offeredMatches as m}
+                  <button on:click={() => addNegCar("offered", m)}>
+                    <b>{m.brand} {m.model}</b>
+                    <small>{CAR_CLASS_BY_ID[m.classId].label}</small>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        </div>
+
+        <div class="neg-col">
+          <div class="nc-head spotted">Spotted on the lot</div>
+          {#each neg.spotted as c, i}
+            {@const d = tierDelta(c)}
+            <div class="ncar">
+              <div class="ncar-info">
+                <span class="ncar-name">{c.brand} {c.model}</span>
+                <span class="ncar-class">{carClassLabel(c)}</span>
+              </div>
+              <span class="delta {d.cls}">{d.sym} {d.txt}</span>
+              <button
+                class="ncar-x"
+                on:click={() => removeNegCar("spotted", i)}
+                aria-label="Remove">×</button>
+            </div>
+          {/each}
+          <div class="addbox">
+            <input
+              type="text"
+              placeholder="Add a car you can see…"
+              bind:value={spottedQuery}
+              autocomplete="off"
+            />
+            {#if spottedMatches.length}
+              <div class="adddrop">
+                {#each spottedMatches as m}
+                  <button on:click={() => addNegCar("spotted", m)}>
+                    <b>{m.brand} {m.model}</b>
+                    <small>{CAR_CLASS_BY_ID[m.classId].label}</small>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        </div>
+      </div>
+
+      <div class="neg-verdict {negVerdict.tone}">
+        <span class="nv-tag">Strategy</span>
+        <span class="nv-text">{negVerdict.text}</span>
+      </div>
+    </div>
+
     <!-- ===================== SWAP FINDER ===================== -->
     {#if status !== "match"}
       <div class="sec-head">
@@ -294,8 +508,8 @@
     {/if}
 
     <div class="vactions">
-      <button class="btn ghost" on:click={remove}>Delete</button>
       <button class="btn ghost" on:click={startEdit}>Edit booking</button>
+      <button class="btn danger" on:click={remove}>Delete</button>
     </div>
 
   {:else}
@@ -469,6 +683,27 @@
 
   .vhead h2 { margin: 2px 2px 4px; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
   .vhead p { margin: 0 2px 16px; font-size: 14px; color: var(--text-2); line-height: 1.5; }
+  .vhead-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .edit-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: 100px;
+    padding: 8px 15px;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0,122,255,0.28);
+  }
+  .edit-btn:active { transform: scale(0.96); }
 
   /* ---------- ticket ---------- */
   .ticket {
@@ -627,6 +862,135 @@
   .sr-meta { font-size: 12px; color: var(--muted); margin-top: 2px; text-transform: capitalize; }
   .sr-go { color: var(--muted); flex-shrink: 0; }
 
+  /* ---------- negotiation ---------- */
+  .neg {
+    margin-top: 18px;
+    background: var(--surface);
+    border-radius: 18px;
+    box-shadow: var(--shadow-1);
+    padding: 15px;
+  }
+  .neg-top h3 { margin: 0 0 3px; font-size: 17px; font-weight: 800; }
+  .neg-top p {
+    margin: 0 0 13px;
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .neg-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .neg-col {
+    background: var(--surface-2);
+    border-radius: 13px;
+    padding: 10px;
+  }
+  .nc-head {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 4px 8px;
+  }
+  .nc-head.offered { color: var(--blue); }
+  .nc-head.spotted { color: var(--orange-dark); }
+
+  .ncar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+  }
+  .ncar-info { flex: 1; min-width: 0; }
+  .ncar-name { font-size: 13.5px; font-weight: 600; display: block; }
+  .ncar-class { font-size: 11px; color: var(--muted); }
+  .delta {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 7px;
+    border-radius: 7px;
+  }
+  .delta.up { background: rgba(52,199,89,0.16); color: #1f8a3b; }
+  .delta.down { background: rgba(255,59,48,0.14); color: #c5362c; }
+  .delta.same { background: var(--surface-3); color: var(--muted); }
+  .ncar-x {
+    flex-shrink: 0;
+    border: none;
+    background: var(--surface-3);
+    color: var(--muted);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 14px;
+  }
+
+  .addbox { position: relative; }
+  .addbox input {
+    width: 100%;
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 9px 11px;
+    font-size: 13.5px;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+  }
+  .addbox input:focus { border-style: solid; border-color: var(--blue); }
+  .adddrop {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 10;
+    background: var(--surface);
+    border-radius: 10px;
+    box-shadow: var(--shadow-2);
+    overflow: hidden;
+  }
+  .adddrop button {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line-soft);
+    padding: 9px 11px;
+  }
+  .adddrop button:last-child { border-bottom: none; }
+  .adddrop button:active { background: var(--surface-2); }
+  .adddrop b { font-size: 13.5px; }
+  .adddrop small { color: var(--muted); font-size: 11.5px; margin-left: 6px; }
+
+  .neg-verdict {
+    margin-top: 12px;
+    border-radius: 12px;
+    padding: 11px 13px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-2);
+  }
+  .neg-verdict.good { background: rgba(52,199,89,0.13); }
+  .neg-verdict.warn { background: rgba(255,159,10,0.15); }
+  .neg-verdict.bad { background: rgba(255,59,48,0.12); }
+  .neg-verdict.info { background: var(--blue-soft); }
+  .nv-tag {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text);
+    margin-right: 6px;
+  }
+
+  @media (min-width: 540px) {
+    .neg-grid { grid-template-columns: 1fr 1fr; }
+  }
+
   .vactions { display: flex; gap: 9px; margin-top: 20px; }
 
   /* ---------- form ---------- */
@@ -763,5 +1127,10 @@
     border: 1px solid var(--line);
   }
   .btn.primary { background: var(--blue); color: white; }
+  .btn.danger {
+    background: var(--surface-2);
+    color: var(--red);
+    border: 1px solid var(--line);
+  }
   .btn:active { transform: scale(0.98); }
 </style>

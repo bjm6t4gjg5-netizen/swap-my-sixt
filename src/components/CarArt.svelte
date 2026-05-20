@@ -5,8 +5,10 @@
   export let classId: CarClassId;
   /** Slightly smaller treatment when inlined in tight spaces. */
   export let compact = false;
+  /** Override the class-default silhouette (e.g. an SUV inside the EV class). */
+  export let body: BodyShape | undefined = undefined;
 
-  $: body = carBody(classId);
+  $: shape = body ?? carBody(classId);
   $: color = carColor(classId);
 
   // wheel layout per body: [frontX, rearX, centreY, radius]
@@ -18,7 +20,7 @@
     convertible: [60, 186, 103, 21],
     van: [60, 190, 105, 22]
   };
-  $: [wf, wr, wy, wrad] = WHEELS[body];
+  $: [wf, wr, wy, wrad] = WHEELS[shape];
 
   const GLASS = "#e7edf3";
 </script>
@@ -32,7 +34,7 @@
 >
   <ellipse cx="120" cy="125" rx="106" ry="7.5" fill="rgba(0,0,0,0.10)" />
 
-  {#if body === "hatch"}
+  {#if shape === "hatch"}
     <path
       d="M20 101 L20 82 C20 77 23 73 29 71 L60 60 C65 49 73 44 86 42 L150 42 C162 43 170 49 175 63 L189 76 C193 81 193 86 193 92 L193 101 L190 101 A24 24 0 0 0 142 101 L86 101 A24 24 0 0 0 38 101 Z"
       fill={color}
@@ -41,7 +43,7 @@
     <path d="M138 47 L150 47 L162 60 L138 60 Z" fill={GLASS} />
     <rect x="186" y="74" width="9" height="9" rx="3" fill="#ff5a52" />
     <ellipse cx="24" cy="80" rx="6" ry="5" fill="#fff4cf" />
-  {:else if body === "sedan"}
+  {:else if shape === "sedan"}
     <path
       d="M16 101 L16 83 C16 78 19 74 25 72 L64 60 C69 49 77 43 90 41 L150 41 C164 42 172 49 180 61 L218 70 C223 72 226 77 226 83 L226 101 L200 101 A24 24 0 0 0 152 101 L88 101 A24 24 0 0 0 40 101 Z"
       fill={color}
@@ -50,7 +52,7 @@
     <path d="M122 46 L146 46 L158 58 L122 58 Z" fill={GLASS} />
     <rect x="218" y="72" width="9" height="9" rx="3" fill="#ff5a52" />
     <ellipse cx="21" cy="82" rx="6" ry="5" fill="#fff4cf" />
-  {:else if body === "suv"}
+  {:else if shape === "suv"}
     <path
       d="M18 103 L18 74 C18 68 22 64 30 62 L60 54 C64 43 72 37 86 35 L156 35 C170 36 179 43 185 56 L220 65 C226 67 230 72 230 79 L230 103 L204 103 A26 26 0 0 0 154 103 L90 103 A26 26 0 0 0 38 103 Z"
       fill={color}
@@ -60,7 +62,7 @@
     <path d="M122 40 L152 40 L165 53 L122 53 Z" fill={GLASS} />
     <rect x="221" y="68" width="9" height="10" rx="3" fill="#ff5a52" />
     <ellipse cx="23" cy="72" rx="6" ry="5.5" fill="#fff4cf" />
-  {:else if body === "coupe"}
+  {:else if shape === "coupe"}
     <path
       d="M14 102 L14 86 C14 80 18 76 26 74 L70 62 C80 49 95 43 114 42 C140 43 160 49 176 62 L212 72 C219 74 223 79 223 86 L223 102 L208 102 A25 25 0 0 0 160 102 L86 102 A25 25 0 0 0 38 102 Z"
       fill={color}
@@ -71,7 +73,7 @@
     />
     <rect x="216" y="74" width="8" height="8" rx="3" fill="#ff5a52" />
     <ellipse cx="19" cy="84" rx="6" ry="5" fill="#fff4cf" />
-  {:else if body === "convertible"}
+  {:else if shape === "convertible"}
     <path
       d="M14 102 L14 86 C14 80 18 76 26 74 L74 64 L204 64 C214 65 221 70 224 79 L226 86 L226 102 L208 102 A25 25 0 0 0 160 102 L86 102 A25 25 0 0 0 38 102 Z"
       fill={color}

@@ -24,7 +24,8 @@
       kind: "model",
       classId: m.classId,
       brand: m.brand,
-      model: m.model
+      model: m.model,
+      body: m.body
     });
     dispatch("close");
   }
@@ -67,7 +68,7 @@
           {#each results as m}
             <button class="resrow" on:click={() => pickModel(m)}>
               <div class="resart" style="background:{tint(m.classId)}">
-                <CarArt classId={m.classId} compact />
+                <CarArt classId={m.classId} body={m.body} compact />
               </div>
               <div class="resinfo">
                 <div class="resname">{m.brand} {m.model}</div>

@@ -35,8 +35,13 @@ jobs:
       - name: Build
         run: npm run build
 
+      # enablement:true tells GitHub to (re)configure Pages to deploy from
+      # this workflow — avoids the "white page" you get when Pages is set to
+      # "Deploy from a branch" and serves the raw source instead of /dist.
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

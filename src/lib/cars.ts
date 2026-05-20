@@ -2,24 +2,24 @@ import type { CarClass, CarClassId, CarModel } from "./types";
 
 // Sixt car classes, roughly ordered from smallest/cheapest to largest/priciest.
 export const CAR_CLASSES: CarClass[] = [
-  { id: "mini",         label: "Mini",            acriss: "MBMR", description: "Smallest city cars — 2–4 seats, tiny footprint." },
-  { id: "economy",      label: "Economy",         acriss: "EBMR", description: "Budget small hatchbacks, low running cost." },
-  { id: "compact",      label: "Compact",         acriss: "CDMR", description: "Golf-class hatchbacks — the everyday workhorse." },
-  { id: "midsize",      label: "Mid-size",        acriss: "IDMR", description: "Roomier compacts and small estates." },
-  { id: "intermediate", label: "Intermediate",    acriss: "SDMR", description: "Large family sedans and estates." },
-  { id: "premium",      label: "Premium",         acriss: "PDAR", description: "Executive sedans — BMW 3, C-Class, A4." },
-  { id: "premiumPlus",  label: "Premium Plus",    acriss: "UDAR", description: "Upper-executive — BMW 5, E-Class, A6." },
-  { id: "luxury",       label: "Luxury",          acriss: "LDAR", description: "Flagship sedans — S-Class, 7 Series, A8." },
-  { id: "suvSmall",     label: "Compact SUV",     acriss: "CFAR", description: "Small crossovers — X1, GLA, Q3." },
-  { id: "suvMid",       label: "Mid-size SUV",    acriss: "IFAR", description: "Family SUVs — X3, GLC, Q5." },
-  { id: "suvPremium",   label: "Premium SUV",     acriss: "PFAR", description: "Large premium SUVs — X5, GLE, Q7." },
-  { id: "suvLuxury",    label: "Luxury SUV",      acriss: "LFAR", description: "Flagship SUVs — X7, GLS, Range Rover." },
-  { id: "sport",        label: "Sport",           acriss: "XTAR", description: "Performance coupes & hot sedans — M-Series, AMG." },
-  { id: "sportPlus",    label: "Sport Plus",      acriss: "XEAR", description: "Supercar-adjacent — 911, AMG GT, M5 CS." },
-  { id: "convertible",  label: "Convertible",     acriss: "STAR", description: "Cabriolets & roadsters." },
-  { id: "electric",     label: "Electric",        acriss: "EEAR", description: "Battery-electric vehicles, all sizes." },
-  { id: "van",          label: "Van / People Mover", acriss: "FVAR", description: "7–9 seat passenger vans." },
-  { id: "transporter",  label: "Transporter",     acriss: "KVMR", description: "Cargo vans for moving & logistics." }
+  { id: "mini",         label: "Mini",            tier: 1,  acriss: "MBMR", description: "Smallest city cars — 2–4 seats, tiny footprint." },
+  { id: "economy",      label: "Economy",         tier: 2,  acriss: "EBMR", description: "Budget small hatchbacks, low running cost." },
+  { id: "compact",      label: "Compact",         tier: 3,  acriss: "CDMR", description: "Golf-class hatchbacks — the everyday workhorse." },
+  { id: "midsize",      label: "Mid-size",        tier: 4,  acriss: "IDMR", description: "Roomier compacts and small estates." },
+  { id: "intermediate", label: "Intermediate",    tier: 5,  acriss: "SDMR", description: "Large family sedans and estates." },
+  { id: "premium",      label: "Premium",         tier: 6,  acriss: "PDAR", description: "Executive sedans — BMW 3, C-Class, A4." },
+  { id: "premiumPlus",  label: "Premium Plus",    tier: 7,  acriss: "UDAR", description: "Upper-executive — BMW 5, E-Class, A6." },
+  { id: "luxury",       label: "Luxury",          tier: 9,  acriss: "LDAR", description: "Flagship sedans — S-Class, 7 Series, A8." },
+  { id: "suvSmall",     label: "Compact SUV",     tier: 5,  acriss: "CFAR", description: "Small crossovers — X1, GLA, Q3." },
+  { id: "suvMid",       label: "Mid-size SUV",    tier: 7,  acriss: "IFAR", description: "Family SUVs — X3, GLC, Q5." },
+  { id: "suvPremium",   label: "Premium SUV",     tier: 8,  acriss: "PFAR", description: "Large premium SUVs — X5, GLE, Q7." },
+  { id: "suvLuxury",    label: "Luxury SUV",      tier: 9,  acriss: "LFAR", description: "Flagship SUVs — X7, GLS, Range Rover." },
+  { id: "sport",        label: "Sport",           tier: 9,  acriss: "XTAR", description: "Performance coupes & hot sedans — M-Series, AMG." },
+  { id: "sportPlus",    label: "Sport Plus",      tier: 10, acriss: "XEAR", description: "Supercar-adjacent — 911, AMG GT, M5 CS." },
+  { id: "convertible",  label: "Convertible",     tier: 8,  acriss: "STAR", description: "Cabriolets & roadsters." },
+  { id: "electric",     label: "Electric",        tier: 6,  acriss: "EEAR", description: "Battery-electric vehicles, all sizes." },
+  { id: "van",          label: "Van / People Mover", tier: 4, acriss: "FVAR", description: "7–9 seat passenger vans." },
+  { id: "transporter",  label: "Transporter",     tier: 3,  acriss: "KVMR", description: "Cargo vans for moving & logistics." }
 ];
 
 export const CAR_CLASS_BY_ID: Record<CarClassId, CarClass> =
@@ -117,20 +117,20 @@ export const CAR_MODELS: CarModel[] = [
   { brand: "Porsche", model: "Cayenne", classId: "suvLuxury", awd: true },
 
   // Sport
-  { brand: "BMW", model: "M2", classId: "sport", performance: true },
-  { brand: "BMW", model: "M3", classId: "sport", performance: true, awd: true },
-  { brand: "BMW", model: "M4", classId: "sport", performance: true },
-  { brand: "Mercedes-AMG", model: "C 43", classId: "sport", performance: true, awd: true },
-  { brand: "Mercedes-AMG", model: "A 45 S", classId: "sport", performance: true, awd: true },
-  { brand: "Audi", model: "RS 3", classId: "sport", performance: true, awd: true },
-  { brand: "Audi", model: "S5", classId: "sport", performance: true, awd: true },
-  { brand: "Porsche", model: "718 Cayman", classId: "sport", performance: true },
+  { brand: "BMW", model: "M2", classId: "sport", body: "coupe", performance: true },
+  { brand: "BMW", model: "M3", classId: "sport", body: "sedan", performance: true, awd: true },
+  { brand: "BMW", model: "M4", classId: "sport", body: "coupe", performance: true },
+  { brand: "Mercedes-AMG", model: "C 43", classId: "sport", body: "sedan", performance: true, awd: true },
+  { brand: "Mercedes-AMG", model: "A 45 S", classId: "sport", body: "hatch", performance: true, awd: true },
+  { brand: "Audi", model: "RS 3", classId: "sport", body: "sedan", performance: true, awd: true },
+  { brand: "Audi", model: "S5", classId: "sport", body: "coupe", performance: true, awd: true },
+  { brand: "Porsche", model: "718 Cayman", classId: "sport", body: "coupe", performance: true },
 
   // Sport Plus
-  { brand: "Porsche", model: "911 Carrera", classId: "sportPlus", performance: true },
-  { brand: "BMW", model: "M5", classId: "sportPlus", performance: true, awd: true },
-  { brand: "Mercedes-AMG", model: "GT", classId: "sportPlus", performance: true },
-  { brand: "BMW", model: "M8 Competition", classId: "sportPlus", performance: true, awd: true },
+  { brand: "Porsche", model: "911 Carrera", classId: "sportPlus", body: "coupe", performance: true },
+  { brand: "BMW", model: "M5", classId: "sportPlus", body: "sedan", performance: true, awd: true },
+  { brand: "Mercedes-AMG", model: "GT", classId: "sportPlus", body: "coupe", performance: true },
+  { brand: "BMW", model: "M8 Competition", classId: "sportPlus", body: "coupe", performance: true, awd: true },
 
   // Convertible
   { brand: "BMW", model: "4 Series Convertible", classId: "convertible", cabrio: true },
@@ -141,19 +141,19 @@ export const CAR_MODELS: CarModel[] = [
   { brand: "Porsche", model: "718 Boxster", classId: "convertible", cabrio: true, performance: true },
 
   // Electric
-  { brand: "Tesla", model: "Model 3", classId: "electric", ev: true },
-  { brand: "Tesla", model: "Model Y", classId: "electric", ev: true, awd: true },
-  { brand: "BMW", model: "i4", classId: "electric", ev: true },
-  { brand: "BMW", model: "iX3", classId: "electric", ev: true },
-  { brand: "BMW", model: "iX1", classId: "electric", ev: true },
-  { brand: "Mercedes-Benz", model: "EQA", classId: "electric", ev: true },
-  { brand: "Mercedes-Benz", model: "EQE", classId: "electric", ev: true },
-  { brand: "Polestar", model: "2", classId: "electric", ev: true },
-  { brand: "Audi", model: "Q4 e-tron", classId: "electric", ev: true },
-  { brand: "Volkswagen", model: "ID.4", classId: "electric", ev: true },
-  { brand: "Volkswagen", model: "ID.3", classId: "electric", ev: true },
-  { brand: "Hyundai", model: "Ioniq 5", classId: "electric", ev: true },
-  { brand: "Kia", model: "EV6", classId: "electric", ev: true },
+  { brand: "Tesla", model: "Model 3", classId: "electric", body: "sedan", ev: true },
+  { brand: "Tesla", model: "Model Y", classId: "electric", body: "suv", ev: true, awd: true },
+  { brand: "BMW", model: "i4", classId: "electric", body: "sedan", ev: true },
+  { brand: "BMW", model: "iX3", classId: "electric", body: "suv", ev: true },
+  { brand: "BMW", model: "iX1", classId: "electric", body: "suv", ev: true },
+  { brand: "Mercedes-Benz", model: "EQA", classId: "electric", body: "suv", ev: true },
+  { brand: "Mercedes-Benz", model: "EQE", classId: "electric", body: "sedan", ev: true },
+  { brand: "Polestar", model: "2", classId: "electric", body: "sedan", ev: true },
+  { brand: "Audi", model: "Q4 e-tron", classId: "electric", body: "suv", ev: true },
+  { brand: "Volkswagen", model: "ID.4", classId: "electric", body: "suv", ev: true },
+  { brand: "Volkswagen", model: "ID.3", classId: "electric", body: "hatch", ev: true },
+  { brand: "Hyundai", model: "Ioniq 5", classId: "electric", body: "suv", ev: true },
+  { brand: "Kia", model: "EV6", classId: "electric", body: "suv", ev: true },
 
   // Van / People Mover
   { brand: "Volkswagen", model: "Multivan", classId: "van" },
