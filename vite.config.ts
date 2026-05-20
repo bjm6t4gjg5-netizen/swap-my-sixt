@@ -3,8 +3,11 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { VitePWA } from "vite-plugin-pwa";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 
-// GitHub Pages serves at /swap-my-sixt/, so base must match the repo name.
-const BASE = "/swap-my-sixt/";
+// The site is served from the root of the custom domain
+// (swap-my-sixt.deich-dynamics.com), so the base path is "/".
+// If you ever remove the custom domain and use the plain
+// https://<user>.github.io/swap-my-sixt/ URL, set this back to "/swap-my-sixt/".
+const BASE = "/";
 
 export default defineConfig({
   base: BASE,

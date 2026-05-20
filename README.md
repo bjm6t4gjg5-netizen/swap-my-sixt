@@ -113,16 +113,20 @@ and publish via `.github/workflows/deploy.yml`.
 3. Under **Build and deployment → Source**, choose **GitHub Actions**.
 4. That's it. The next push builds and deploys automatically.
 
-The site goes live at `https://bjm6t4gjg5-netizen.github.io/swap-my-sixt/`.
+The site is live at `https://swap-my-sixt.deich-dynamics.com/` — a custom
+domain configured in **Settings → Pages**. The `public/CNAME` file keeps that
+domain attached on every deploy.
 
-> The Vite `base` is set to `/swap-my-sixt/` in `vite.config.ts`. If you rename
-> the repo, change that value to match.
+> Because of the custom domain the site is served from the **root**, so the
+> Vite `base` is `/` in `vite.config.ts`. If you ever drop the custom domain
+> and use the plain `https://<user>.github.io/swap-my-sixt/` URL instead, set
+> `base` back to `/swap-my-sixt/` (and remove `public/CNAME`).
 
 ### Local development
 
 ```bash
 npm install
-npm run dev      # https://localhost:5173/swap-my-sixt/  + a Network URL
+npm run dev      # https://localhost:5173/  + a Network URL
 npm run build    # production build into dist/
 npm run preview  # preview the production build
 npm run check    # type-check the whole project
@@ -131,7 +135,7 @@ npm run check    # type-check the whole project
 Requires Node 18+ (the CI uses Node 20).
 
 **Testing on an iPhone / iPad:** `npm run dev` prints two URLs — a `Local`
-one and a `Network` one like `https://192.168.x.x:5173/swap-my-sixt/`. Open
+one and a `Network` one like `https://192.168.x.x:5173/`. Open
 the **Network** URL on any device on the same Wi-Fi. The dev server runs over
 **HTTPS** (self-signed) so geolocation works on iOS — Safari will show a
 one-time "not private" warning; tap **Show details → visit this website** to
@@ -139,22 +143,23 @@ proceed. The certificate warning is expected for a local self-signed cert.
 
 ## Troubleshooting
 
-**Deployed site shows a blank white page.** The repo itself is fine — a white
-page almost always means GitHub Pages is serving the **raw repository source**
-(an `index.html` that points at `/src/main.ts`, which a browser can't run)
-instead of the **built `dist/` folder** the workflow produces. Work through
-this in order:
+**Deployed site shows a blank white page.** The `index.html` loads but the
+JavaScript and CSS 404, so nothing renders. The cause is a mismatch between the
+Vite `base` and where the site is actually served:
+
+- **With the custom domain** (`swap-my-sixt.deich-dynamics.com`) the site is
+  served from the root, so `base` must be `/`. If `base` is `/swap-my-sixt/`,
+  every asset is requested at `/swap-my-sixt/assets/…` which doesn't exist.
+- **On the plain `<user>.github.io/swap-my-sixt/` URL** the opposite is true —
+  `base` must be `/swap-my-sixt/`.
+
+Pick one and keep `base` (in `vite.config.ts`) consistent with it. Other checks:
 
 1. **Settings → Pages → Build and deployment → Source** must be
-   **GitHub Actions** — *not* "Deploy from a branch". This is the single most
-   common cause; if it's on branch mode, switch it and re-run the workflow.
+   **GitHub Actions** — *not* "Deploy from a branch".
 2. Open the **Actions** tab. The latest "Deploy to GitHub Pages" run must be
-   **green**. If it's red, open it and read the failing step. If it never ran,
-   push any commit (or use **Run workflow** on the workflow page).
-3. Confirm you're opening the full path
-   `https://<user>.github.io/swap-my-sixt/` — the bare
-   `https://<user>.github.io/` will 404.
-4. If you previously opened the site, your browser may be holding an old
+   **green**. If it's red, open it and read the failing step.
+3. If you previously opened the site, your browser may be holding an old
    **service worker**. Hard-refresh (desktop: Cmd/Ctrl+Shift+R) or, on iOS,
    close the tab and reopen — or clear the site data once.
 
