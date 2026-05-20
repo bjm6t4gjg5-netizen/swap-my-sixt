@@ -1,4 +1,4 @@
-# Swap my Sixt — v5.6
+# Swap my Sixt — v5.7
 
 A navigation web app that helps you swap a Sixt rental into the car you
 actually want. Plan a route, see every Sixt station along it, and get a live

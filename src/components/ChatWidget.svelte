@@ -33,10 +33,18 @@
   let avatarOk = true;
   let msgEl: HTMLDivElement;
 
-  // bottom-left & lower on the Navigate tab (clear of the sheet + locate FAB)
+  // one-time quick-help on the first ever open
+  let seenIntro = false;
+  try {
+    seenIntro = localStorage.getItem("sixt.chatIntro") === "1";
+  } catch {
+    /* private mode */
+  }
+  let showHelp = false;
+
+  // bottom-right; lifted above the map's bottom sheet on the Navigate tab
   $: onNav = $activeTab === "navigate";
-  $: fabBottom = onNav ? 112 : 16;
-  $: fabSide = onNav ? "left" : "right";
+  $: fabBottom = onNav ? 116 : 16;
 
   function bookingSummary(): string | undefined {
     const b = $booking;
@@ -131,6 +139,15 @@
   }
   function openPanel() {
     open = true;
+    if (!seenIntro) {
+      showHelp = true;
+      seenIntro = true;
+      try {
+        localStorage.setItem("sixt.chatIntro", "1");
+      } catch {
+        /* ignore */
+      }
+    }
     scrollDown();
   }
 </script>
@@ -139,7 +156,7 @@
 {#if !open && hidden}
   <button
     class="nub"
-    style="bottom: calc({fabBottom}px + var(--safe-bottom)); {fabSide}: 0"
+    style="bottom: calc({fabBottom}px + var(--safe-bottom)); right: 0"
     on:click={() => (hidden = false)}
     aria-label="Show the analyst"
   >
@@ -153,7 +170,7 @@
 {#if !open && !hidden}
   <div
     class="fab-wrap"
-    style="bottom: calc({fabBottom}px + var(--safe-bottom)); {fabSide}: 14px"
+    style="bottom: calc({fabBottom}px + var(--safe-bottom)); right: 14px"
   >
     <button class="fab" on:click={openPanel} aria-label="Ask the analyst">
       {#if avatarOk}
@@ -223,6 +240,16 @@
         </span>
         <div class="bubble">{GREETING}</div>
       </div>
+
+      {#if showHelp}
+        <div class="help-banner">
+          <span>
+            👋 Quick help: tap a question below or type. <b>+ Key</b> connects
+            the full Claude Lucas; the <b>×</b> on my bubble tucks me away.
+          </span>
+          <button on:click={() => (showHelp = false)} aria-label="Dismiss">×</button>
+        </div>
+      {/if}
 
       {#each messages as m}
         {#if m.role === "assistant"}
@@ -489,6 +516,29 @@
     background: rgba(255, 59, 48, 0.1);
     border-radius: 10px;
     padding: 9px 11px;
+  }
+
+  .help-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: var(--blue-soft);
+    border-radius: 12px;
+    padding: 10px 11px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-2);
+  }
+  .help-banner button {
+    flex-shrink: 0;
+    border: none;
+    background: var(--surface-3);
+    color: var(--muted);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 14px;
+    line-height: 1;
   }
 
   .starters {

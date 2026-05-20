@@ -72,9 +72,14 @@ export interface AcrissDecoded {
   fuel: string;
   ac: boolean;
   classId: CarClassId;
+  /** True for "Elite" category letters — a notch above the base size. */
+  elite: boolean;
   /** A friendly one-line description. */
   summary: string;
 }
+
+/** Category letters that denote an "Elite" (one notch up) variant. */
+const ELITE_CATEGORIES = new Set(["N", "H", "D", "J", "R", "G", "U", "W"]);
 
 /** Maps the category + body letters to one of the app's internal classes. */
 function toClassId(cat: string, body: string, fuelLetter: string): CarClassId {
@@ -123,6 +128,7 @@ export function decodeAcriss(raw: string): AcrissDecoded {
     fuel: "",
     ac: false,
     classId: "compact",
+    elite: false,
     summary: ""
   };
 
@@ -158,6 +164,7 @@ export function decodeAcriss(raw: string): AcrissDecoded {
     fuel: fuelInfo.fuel,
     ac: fuelInfo.ac,
     classId,
+    elite: ELITE_CATEGORIES.has(c1),
     summary: parts.join(" · ")
   };
 }

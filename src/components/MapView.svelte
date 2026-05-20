@@ -12,7 +12,7 @@
   import { fetchRoutes } from "../lib/routing";
   import { buildRouteOptions, type RouteOption } from "../lib/routePlanner";
   import { stationsAlongRoute, verdict } from "../lib/heuristic";
-  import { formatKm, formatDuration } from "../lib/geo";
+  import { formatKm, formatDuration, haversineKm } from "../lib/geo";
   import type { Route, ScoredStation } from "../lib/types";
   import {
     target,
@@ -62,7 +62,7 @@
 
   // Re-score when the target changes
   $: if (route && $target) {
-    scored = stationsAlongRoute(route, STATIONS, targetClassId($target));
+    scoreSelected();
     drawStations();
   }
 
@@ -285,10 +285,24 @@
     fitToRoute();
   }
 
+  // if the route starts at (≈) a Sixt station, that's the pick-up — not a swap
+  $: originStation =
+    origin != null
+      ? STATIONS.find(
+          (s) => haversineKm({ lat: s.lat, lng: s.lng }, origin!) <= 1
+        ) ?? null
+      : null;
+
   function scoreSelected() {
-    scored = route
-      ? stationsAlongRoute(route, STATIONS, targetClassId($target))
-      : [];
+    if (!route) {
+      scored = [];
+      return;
+    }
+    const list = stationsAlongRoute(route, STATIONS, targetClassId($target));
+    // drop the pick-up station — you can't "swap" where you collected the car
+    scored = originStation
+      ? list.filter((s) => s.id !== originStation!.id)
+      : list;
   }
 
   function swapEnds() {
@@ -430,13 +444,18 @@
     map.flyTo([s.lat, s.lng], 12, { duration: 0.5 });
   }
 
-  /* ---------- send the next stop to a maps app ---------- */
-  // The next stop is the chosen swap station if there is one, else the
-  // destination. The MapsMenu offers Apple Maps, Google Maps or Share/AirDrop.
+  /* ---------- send to a maps app ---------- */
+  // Sends the next swap stop (the chosen via-station, else the best-odds
+  // station on the route) and offers the final destination as the alternative.
   let showMapsMenu = false;
-  $: nextStopPoint = viaStation
-    ? { lat: viaStation.lat, lng: viaStation.lng, label: viaStation.name }
-    : dest;
+  $: bestStation = bestId ? scored.find((s) => s.id === bestId) ?? null : null;
+  $: mapTargets = (() => {
+    const arr: { label: string; lat: number; lng: number }[] = [];
+    const swap = viaStation ?? bestStation;
+    if (swap) arr.push({ label: swap.name, lat: swap.lat, lng: swap.lng });
+    if (dest) arr.push({ label: dest.label, lat: dest.lat, lng: dest.lng });
+    return arr;
+  })();
 </script>
 
 <div class="mapview">
@@ -553,6 +572,16 @@
       {/if}
 
       <div class="list">
+        {#if route && originStation}
+          <div class="pickup-note">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" />
+              <path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            Picking up at <b>{originStation.name}</b> — swap options below are
+            further along the route.
+          </div>
+        {/if}
         {#if !route}
           <div class="empty">
             <strong>No route yet</strong>
@@ -600,11 +629,9 @@
     />
   {/if}
 
-  {#if showMapsMenu && nextStopPoint}
+  {#if showMapsMenu && mapTargets.length}
     <MapsMenu
-      lat={nextStopPoint.lat}
-      lng={nextStopPoint.lng}
-      label={nextStopPoint.label}
+      targets={mapTargets}
       originLat={origin?.lat ?? null}
       originLng={origin?.lng ?? null}
       on:close={() => (showMapsMenu = false)}
@@ -628,7 +655,7 @@
 
   .fab {
     position: absolute;
-    right: 12px;
+    left: 12px;
     bottom: 116px;
     width: 46px;
     height: 46px;
@@ -765,6 +792,17 @@
   }
   .strategy-btn:active { transform: scale(0.99); }
   .list { padding-bottom: 20px; border-top: 1px solid var(--line-soft); }
+  .pickup-note {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--text-2);
+    background: var(--surface-2);
+    padding: 9px 16px;
+    line-height: 1.4;
+  }
+  .pickup-note svg { color: var(--blue); flex-shrink: 0; }
 
   .empty { padding: 26px 22px; text-align: center; }
   .empty strong { font-size: 15px; display: block; margin-bottom: 6px; }
@@ -783,7 +821,7 @@
 
   @media (min-width: 760px) {
     .top { width: 448px; right: auto; }
-    .fab { bottom: 24px; right: 24px; }
+    .fab { bottom: 24px; right: 24px; left: auto; }
     .detail-card { left: 14px; right: auto; width: 448px; bottom: 14px; }
   }
 </style>

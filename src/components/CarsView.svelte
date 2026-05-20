@@ -17,6 +17,16 @@
   let openClass: CarClassId | null = null;
   let showAcriss = false;
 
+  // car classes grouped into sensible sections
+  const CLASS_GROUPS: { title: string; ids: CarClassId[] }[] = [
+    { title: "Small & compact", ids: ["mini", "economy", "compact", "midsize"] },
+    { title: "Sedans", ids: ["intermediate", "premium", "premiumPlus", "luxury"] },
+    { title: "SUVs", ids: ["suvSmall", "suvMid", "suvPremium", "suvLuxury"] },
+    { title: "Performance & open-top", ids: ["sport", "sportPlus", "convertible"] },
+    { title: "Electric", ids: ["electric"] },
+    { title: "Vans & transport", ids: ["van", "transporter"] }
+  ];
+
   $: results = query.trim() ? searchCars(query) : [];
   $: detail = openClass ? CAR_CLASS_BY_ID[openClass] : null;
 
@@ -125,27 +135,31 @@
       {/each}
     </div>
   {:else}
-    <div class="grid">
-      {#each CAR_CLASSES as c}
-        {@const count = modelsInClass(c.id).length}
-        <button
-          class="card"
-          class:target={isClassTarget($target, c.id)}
-          on:click={() => (openClass = c.id)}
-        >
-          <div class="card-art" style="background:{tint(c.id, '1f')}">
-            <CarArt classId={c.id} />
-            {#if isClassTarget($target, c.id)}
-              <span class="tgt-badge">Target</span>
-            {/if}
-          </div>
-          <div class="card-foot">
-            <div class="card-title">{c.label}</div>
-            <div class="card-sub">{count} models</div>
-          </div>
-        </button>
-      {/each}
-    </div>
+    {#each CLASS_GROUPS as g}
+      <div class="group-title">{g.title}</div>
+      <div class="grid">
+        {#each g.ids as id}
+          {@const c = CAR_CLASS_BY_ID[id]}
+          {@const count = modelsInClass(id).length}
+          <button
+            class="card"
+            class:target={isClassTarget($target, id)}
+            on:click={() => (openClass = id)}
+          >
+            <div class="card-art" style="background:{tint(id, '1f')}">
+              <CarArt classId={id} />
+              {#if isClassTarget($target, id)}
+                <span class="tgt-badge">Target</span>
+              {/if}
+            </div>
+            <div class="card-foot">
+              <div class="card-title">{c.label}</div>
+              <div class="card-sub">{count} models</div>
+            </div>
+          </button>
+        {/each}
+      </div>
+    {/each}
 
     <p class="foot">
       {CAR_MODELS.length} representative models · {CAR_CLASSES.length} classes.
@@ -261,6 +275,15 @@
   }
 
   /* ---- card grid ---- */
+  .group-title {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 18px 4px 9px;
+  }
+  .group-title:first-child { margin-top: 4px; }
   .grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);

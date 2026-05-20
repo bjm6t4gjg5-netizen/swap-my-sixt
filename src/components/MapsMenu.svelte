@@ -1,41 +1,45 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
 
-  /** The place to send. */
-  export let lat: number;
-  export let lng: number;
-  export let label: string;
+  interface MapTarget {
+    label: string;
+    lat: number;
+    lng: number;
+  }
+
+  /** One or more places to send. If more than one, the user picks. */
+  export let targets: MapTarget[];
   /** Optional start point — if given, the links open as driving directions. */
   export let originLat: number | null = null;
   export let originLng: number | null = null;
 
   const dispatch = createEventDispatcher<{ close: void }>();
 
+  let pick = 0;
   let shareNote = "";
 
+  $: target = targets[pick] ?? targets[0];
   $: hasOrigin = originLat != null && originLng != null;
 
   function appleMaps() {
-    let url = `https://maps.apple.com/?q=${encodeURIComponent(label)}&daddr=${lat},${lng}&dirflg=d`;
+    let url = `https://maps.apple.com/?q=${encodeURIComponent(target.label)}&daddr=${target.lat},${target.lng}&dirflg=d`;
     if (hasOrigin) url += `&saddr=${originLat},${originLng}`;
     window.open(url, "_blank", "noopener");
     dispatch("close");
   }
-
   function googleMaps() {
-    let url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+    let url = `https://www.google.com/maps/dir/?api=1&destination=${target.lat},${target.lng}&travelmode=driving`;
     if (hasOrigin) url += `&origin=${originLat},${originLng}`;
     window.open(url, "_blank", "noopener");
     dispatch("close");
   }
-
   async function share() {
-    const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    const url = `https://www.google.com/maps/search/?api=1&query=${target.lat},${target.lng}`;
     try {
       if (navigator.share) {
         await navigator.share({
-          title: label,
-          text: `Next Sixt stop: ${label}`,
+          title: target.label,
+          text: `Next Sixt stop: ${target.label}`,
           url
         });
         dispatch("close");
@@ -58,8 +62,18 @@
     <div class="grab"></div>
     <div class="head">
       <div class="h-title">Send to Maps</div>
-      <div class="h-sub">{label}</div>
+      <div class="h-sub">{target.label}</div>
     </div>
+
+    {#if targets.length > 1}
+      <div class="seg">
+        {#each targets as t, i}
+          <button class:on={i === pick} on:click={() => (pick = i)}>
+            {i === 0 ? "Next swap stop" : "Final destination"}
+          </button>
+        {/each}
+      </div>
+    {/if}
 
     <div class="options">
       <button class="opt" on:click={appleMaps}>
@@ -144,12 +158,13 @@
     to { transform: translateY(0); }
   }
   .grab {
-    width: 36px; height: 5px;
+    width: 36px;
+    height: 5px;
     background: var(--line);
     border-radius: 3px;
     margin: 8px auto 4px;
   }
-  .head { text-align: center; padding: 6px 0 12px; }
+  .head { text-align: center; padding: 6px 0 10px; }
   .h-title { font-size: 17px; font-weight: 800; }
   .h-sub {
     font-size: 12.5px;
@@ -160,11 +175,30 @@
     text-overflow: ellipsis;
   }
 
-  .options {
+  .seg {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    background: var(--surface-3);
+    border-radius: 10px;
+    padding: 3px;
+    margin-bottom: 10px;
   }
+  .seg button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text-2);
+    padding: 7px 6px;
+    border-radius: 8px;
+  }
+  .seg button.on {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-1);
+  }
+
+  .options { display: flex; flex-direction: column; gap: 8px; }
   .opt {
     display: flex;
     align-items: center;
@@ -177,7 +211,8 @@
   }
   .opt:active { transform: scale(0.99); background: var(--surface-3); }
   .o-ico {
-    width: 40px; height: 40px;
+    width: 40px;
+    height: 40px;
     border-radius: 10px;
     display: grid;
     place-items: center;
@@ -198,7 +233,6 @@
     color: var(--muted);
     padding: 10px 0 2px;
   }
-
   .cancel {
     width: 100%;
     margin-top: 9px;

@@ -217,6 +217,8 @@
 
   $: neg = current?.negotiation ?? { offered: [], spotted: [] };
   $: bookedTier = expectedClass ? expectedClass.tier : 0;
+  // ACRISS "Elite" category letter — booked car is a notch above the base size
+  $: bookedElite = !!(bookedDecoded?.valid && bookedDecoded.elite);
   $: bookedVariant = current?.bookedVariantId
     ? VARIANT_BY_ID[current.bookedVariantId]
     : undefined;
@@ -258,6 +260,34 @@
     booking.set({ ...current, negotiation: next });
   }
 
+  // which branch the negotiation is at (defaults to the pick-up station)
+  $: negStationId =
+    current?.negotiation?.stationId || current?.pickupStationId || "";
+  $: negStation = negStationId ? STATION_BY_ID[negStationId] : undefined;
+
+  function setNegStation(id: string) {
+    if (!current) return;
+    const base = current.negotiation ?? { offered: [], spotted: [] };
+    booking.set({
+      ...current,
+      negotiation: { ...base, stationId: id }
+    });
+  }
+
+  /** How branch size/type shapes your counter leverage. */
+  $: branchLeverage = (() => {
+    const st = negStation;
+    if (!st) return "";
+    const name = st.name.replace("SIXT ", "");
+    if (st.type === "airport" || st.fleet === "XL") {
+      return `${name} is a high-turnover branch — a big lot and constant churn mean real room to upgrade you. Push confidently.`;
+    }
+    if (st.fleet === "L" || st.type === "train") {
+      return `${name} is a mid-sized branch — a decent shot at an upgrade if you ask for something specific.`;
+    }
+    return `${name} is a smaller branch — the lot may be thin, so be realistic, and phone ahead if you can.`;
+  })();
+
   /** How much weight the user's Sixt loyalty status gives at the counter. */
   function statusLeverage(s: string): string {
     if (s === "diamond")
@@ -272,7 +302,11 @@
 
   /** What counts as a good deal for this booking + status. */
   $: goodDeal = expectedClass
-    ? `A good deal is anything from your booked ${expectedClass.label} upward. ${statusLeverage(sixtStatus)} Realistically aim about ${statusBump} tier${statusBump > 1 ? "s" : ""} up.`
+    ? `A good deal is anything from your booked ${expectedClass.label} upward. ` +
+      (bookedElite
+        ? `Note your code ${bookedDecoded?.code} is an "Elite" category — already a notch above the base ${expectedClass.label}, so a true upgrade must clear that, not merely match the class. `
+        : "") +
+      `${statusLeverage(sixtStatus)} Realistically aim about ${statusBump} tier${statusBump > 1 ? "s" : ""} up.`
     : "";
 
   type NegTone = "good" | "warn" | "bad" | "info";
@@ -315,7 +349,12 @@
       if (d === 0) {
         return {
           tone: "warn",
-          text: `${bestO.brand} ${bestO.model} only matches your booked ${expectedClass.label}. Scan the lot — with your status you can fairly ask for a step up. ${statusLeverage(sixtStatus)}`
+          text:
+            `${bestO.brand} ${bestO.model} only matches your booked ${expectedClass.label}` +
+            (bookedElite
+              ? " — and your code is the Elite trim, so this arguably falls a touch short. "
+              : ". ") +
+            `Scan the lot — with your status you can fairly ask for a step up. ${statusLeverage(sixtStatus)}`
         };
       }
       return {
@@ -518,6 +557,19 @@
           every car offered or spotted. Specs are compared against your booked
           <b>{bookedVariant ? variantLabel(bookedVariant) : expectedClass?.label}</b>.
         </p>
+
+        <div class="neg-station">
+          <span class="ns-label">Negotiating at which branch?</span>
+          <StationSearchField
+            stationId={negStationId}
+            placeholder="Pick the branch…"
+            on:select={(e) => setNegStation(e.detail)}
+          />
+          {#if branchLeverage}
+            <div class="ns-note">{branchLeverage}</div>
+          {/if}
+        </div>
+
         {#if goodDeal}
           <div class="good-deal">
             <span class="gd-tag">Good deal?</span>
@@ -1106,6 +1158,24 @@
     color: var(--muted);
     line-height: 1.5;
   }
+  .neg-station { margin-bottom: 12px; }
+  .ns-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+    margin-bottom: 5px;
+  }
+  .ns-note {
+    margin-top: 7px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-2);
+    background: var(--surface-2);
+    border-radius: 10px;
+    padding: 8px 11px;
+  }
+
   .good-deal {
     background: rgba(52, 199, 89, 0.12);
     border-radius: 11px;

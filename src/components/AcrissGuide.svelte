@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import { decodeAcriss } from "../lib/acriss";
+  import { CAR_CLASS_BY_ID } from "../lib/cars";
 
   const dispatch = createEventDispatcher<{ close: void }>();
 
@@ -133,12 +134,31 @@
         </div>
       {/each}
 
-      <div class="example">
-        <b>Worked example — PDAR:</b>
-        <b>P</b>remium category, 4–5 <b>D</b>oor body,
-        <b>A</b>utomatic gearbox, A/C with unspecified fuel (<b>R</b>) — i.e.
-        an automatic executive sedan such as a BMW 3 Series.
-      </div>
+      {#if decoded.valid}
+        <div class="example">
+          <div class="ex-title">Worked example — {decoded.code}</div>
+          <div class="ex-row"><b>{decoded.code[0]}</b> <span>{decoded.category}</span></div>
+          <div class="ex-row"><b>{decoded.code[1]}</b> <span>{decoded.bodyType}</span></div>
+          <div class="ex-row">
+            <b>{decoded.code[2]}</b>
+            <span>{decoded.gearbox}{decoded.drive ? " · " + decoded.drive : ""}</span>
+          </div>
+          <div class="ex-row">
+            <b>{decoded.code[3]}</b>
+            <span>
+              {decoded.fuel || "unspecified fuel"}{decoded.ac ? " · with A/C" : " · no A/C"}
+            </span>
+          </div>
+          <div class="ex-foot">
+            In this app that counts as a
+            <b>{CAR_CLASS_BY_ID[decoded.classId].label}</b>.
+          </div>
+        </div>
+      {:else}
+        <div class="example muted">
+          Type a valid 4-letter code above and it will be worked through here.
+        </div>
+      {/if}
     </div>
   </div>
 </div>
@@ -295,6 +315,22 @@
     line-height: 1.55;
     color: var(--text-2);
   }
+  .example.muted { color: var(--muted); text-align: center; }
+  .ex-title { font-weight: 800; color: var(--text); margin-bottom: 6px; }
+  .ex-row { display: flex; gap: 9px; align-items: baseline; margin-bottom: 2px; }
+  .ex-row b {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    color: var(--blue);
+    width: 14px;
+    flex-shrink: 0;
+  }
+  .ex-foot {
+    margin-top: 7px;
+    padding-top: 7px;
+    border-top: 1px solid rgba(0, 122, 255, 0.18);
+  }
+  .ex-foot b { color: var(--text); }
 
   @media (min-width: 560px) {
     .scrim { align-items: center; }

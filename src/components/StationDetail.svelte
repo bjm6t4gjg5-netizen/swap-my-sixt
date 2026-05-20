@@ -178,9 +178,7 @@
 
 {#if showMaps}
   <MapsMenu
-    lat={station.lat}
-    lng={station.lng}
-    label={station.name}
+    targets={[{ label: station.name, lat: station.lat, lng: station.lng }]}
     on:close={() => (showMaps = false)}
   />
 {/if}

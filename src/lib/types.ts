@@ -131,5 +131,7 @@ export interface Booking {
   negotiation?: {
     offered: NegCar[];
     spotted: NegCar[];
+    /** Which Sixt branch the negotiation is happening at. */
+    stationId?: string;
   };
 }
