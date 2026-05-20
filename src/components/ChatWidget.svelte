@@ -10,6 +10,7 @@
   } from "../lib/analyst";
   import {
     offlineReply,
+    suggestionsFor,
     STARTER_QUESTIONS,
     type OfflineContext
   } from "../lib/lucasOffline";
@@ -45,6 +46,13 @@
   // bottom-right; lifted above the map's bottom sheet on the Navigate tab
   $: onNav = $activeTab === "navigate";
   $: fabBottom = onNav ? 116 : 16;
+
+  // conversational suggestion chips — change with the last thing asked
+  $: lastUserText =
+    [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+  $: suggestions = messages.length
+    ? suggestionsFor(lastUserText)
+    : STARTER_QUESTIONS;
 
   function bookingSummary(): string | undefined {
     const b = $booking;
@@ -283,7 +291,7 @@
 
       {#if !busy}
         <div class="starters">
-          {#each STARTER_QUESTIONS as q}
+          {#each suggestions as q (q)}
             <button class="starter" on:click={() => ask(q)}>{q}</button>
           {/each}
         </div>

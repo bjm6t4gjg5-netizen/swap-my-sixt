@@ -117,14 +117,16 @@
       </div>
 
       {#each positions as p}
+        {@const typed = code.toUpperCase()[p.n - 1] ?? ""}
         <div class="pos">
           <div class="pos-head">
             <span class="pos-n">{p.n}</span>
             <span class="pos-title">{p.title}</span>
+            {#if typed}<span class="pos-typed">{typed}</span>{/if}
           </div>
           <div class="pos-rows">
             {#each p.rows as [letter, meaning]}
-              <div class="pr">
+              <div class="pr" class:hi={typed === letter}>
                 <span class="pr-l">{letter}</span>
                 <span class="pr-m">{meaning}</span>
               </div>
@@ -284,13 +286,32 @@
     font-size: 12px;
     font-weight: 800;
   }
-  .pos-title { font-size: 14px; font-weight: 700; }
+  .pos-title { font-size: 14px; font-weight: 700; flex: 1; }
+  .pos-typed {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    font-weight: 800;
+    color: white;
+    background: var(--blue);
+    border-radius: 6px;
+    padding: 2px 8px;
+  }
   .pos-rows {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4px 14px;
+    gap: 3px 10px;
   }
-  .pr { display: flex; align-items: baseline; gap: 8px; }
+  .pr {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    border-radius: 6px;
+    padding: 2px 5px;
+  }
+  .pr.hi {
+    background: var(--blue-soft);
+    box-shadow: inset 0 0 0 1.5px var(--blue);
+  }
   .pr-l {
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-weight: 800;
@@ -299,6 +320,7 @@
     width: 16px;
     flex-shrink: 0;
   }
+  .pr.hi .pr-l { color: var(--blue); }
   .pr-m { font-size: 12.5px; color: var(--text-2); }
   .pos-note {
     font-size: 11.5px;

@@ -22,9 +22,9 @@ function persisted<T>(key: string, initial: T): Writable<T> {
   return store;
 }
 
-export type TabId = "navigate" | "booking" | "cars" | "stations";
+export type TabId = "home" | "navigate" | "booking" | "cars" | "stations";
 
-export const activeTab = writable<TabId>("navigate");
+export const activeTab = writable<TabId>("home");
 
 /* ============================================================
    Target — what the user is hunting for. Either nothing in

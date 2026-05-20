@@ -1,7 +1,7 @@
 {
   "name": "swap-my-sixt",
   "private": true,
-  "version": "5.7.0",
+  "version": "3.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

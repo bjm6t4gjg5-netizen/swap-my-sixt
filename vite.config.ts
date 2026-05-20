@@ -18,7 +18,13 @@ export default defineConfig({
     svelte(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icon-192.png", "icon-512.png", "icon-maskable-512.png"],
+      includeAssets: [
+        "icon-192.png",
+        "icon-512.png",
+        "icon-maskable-512.png",
+        "favicon.png",
+        "apple-touch-icon.png"
+      ],
       manifest: {
         name: "Swap my Sixt",
         short_name: "Sixt Swap",

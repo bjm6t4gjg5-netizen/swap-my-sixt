@@ -1,5 +1,6 @@
 <script lang="ts">
   import Header from "./components/Header.svelte";
+  import HomeView from "./components/HomeView.svelte";
   import MapView from "./components/MapView.svelte";
   import BookingView from "./components/BookingView.svelte";
   import CarsView from "./components/CarsView.svelte";
@@ -11,6 +12,9 @@
 <div class="shell">
   <Header />
   <main>
+    <div class="pane scroll" class:show={$activeTab === "home"}>
+      <HomeView />
+    </div>
     <div class="pane" class:show={$activeTab === "navigate"}>
       <MapView active={$activeTab === "navigate"} />
     </div>

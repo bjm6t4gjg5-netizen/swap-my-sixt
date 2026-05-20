@@ -10,7 +10,7 @@
 </script>
 
 <header>
-  <div class="brand">
+  <button class="brand" on:click={() => activeTab.set("home")} title="Home">
     <div class="logo">
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
         <path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z" fill="white"/>
@@ -21,7 +21,7 @@
       <span class="w1">Swap my</span>
       <span class="w2">SIXT</span>
     </div>
-  </div>
+  </button>
 
   <nav class="tabs">
     {#each tabs as t}
@@ -56,7 +56,16 @@
     flex-shrink: 0;
   }
 
-  .brand { display: flex; align-items: center; gap: 9px; }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+  .brand:active { transform: scale(0.96); }
   .logo {
     width: 32px; height: 32px;
     background: rgba(0,0,0,0.22);
