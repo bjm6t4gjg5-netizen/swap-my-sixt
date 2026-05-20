@@ -52,14 +52,16 @@
     position: absolute;
     left: 0; right: 0; bottom: 0;
     z-index: 30;
-    background: var(--surface);
-    border-radius: 16px 16px 0 0;
+    background: var(--material-2);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border-radius: 20px 20px 0 0;
     box-shadow: var(--shadow-3);
     padding-bottom: var(--safe-bottom);
     display: flex;
     flex-direction: column;
     max-height: 88%;
-    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1);
     will-change: transform;
   }
   .sheet.collapsed { transform: translateY(calc(100% - 96px - var(--safe-bottom))); }
@@ -94,7 +96,7 @@
       right: auto;
       bottom: 14px;
       width: 388px;
-      border-radius: 16px;
+      border-radius: 20px;
       transition: max-height 0.28s ease;
     }
     .sheet.collapsed { transform: none; max-height: 96px; }

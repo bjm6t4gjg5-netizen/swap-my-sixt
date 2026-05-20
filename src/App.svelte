@@ -20,7 +20,7 @@
       <CarsView />
     </div>
     <div class="pane scroll" class:show={$activeTab === "stations"}>
-      <StationsView />
+      <StationsView active={$activeTab === "stations"} />
     </div>
   </main>
 </div>

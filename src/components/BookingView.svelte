@@ -1,11 +1,14 @@
 <script lang="ts">
-  import { STATIONS, STATION_BY_ID } from "../lib/stations";
+  import { STATION_BY_ID, STATIONS } from "../lib/stations";
   import { CAR_CLASSES, CAR_CLASS_BY_ID, searchCars } from "../lib/cars";
+  import { decodeAcriss, ACRISS_EXAMPLES } from "../lib/acriss";
   import { computeScore } from "../lib/heuristic";
   import { haversineKm } from "../lib/geo";
   import { booking, myLocation, requestNavigation } from "../lib/store";
-  import type { Booking, CarClassId, CarModel, ScoredStation } from "../lib/types";
+  import type { Booking, CarModel, ScoredStation } from "../lib/types";
   import ProbabilityBadge from "./ProbabilityBadge.svelte";
+  import StationSearchField from "./StationSearchField.svelte";
+  import CarArt from "./CarArt.svelte";
 
   type Mode = "view" | "edit";
   let mode: Mode = $booking ? "view" : "edit";
@@ -13,6 +16,8 @@
   function blankDraft(): Booking {
     return {
       ref: "",
+      acrissCode: "",
+      bookedExample: "",
       pickupStationId: "",
       pickupDate: "",
       returnDate: "",
@@ -25,10 +30,16 @@
   }
 
   let draft: Booking = $booking ? { ...$booking } : blankDraft();
+  let manualClass = draft.expectedClassId;
+  let showManual = false;
+
+  // live ACRISS decode of the draft (read-only — avoids a reactive cycle)
+  $: draftDecoded = decodeAcriss(draft.acrissCode ?? "");
+  // the class we'll actually store: decoded code wins, else the manual pick
+  $: resolvedClassId = draftDecoded.valid ? draftDecoded.classId : manualClass;
 
   // --- actual-car autocomplete ---
   let carQuery = "";
-  let carMatches: CarModel[] = [];
   $: carMatches = carQuery.trim() ? searchCars(carQuery).slice(0, 6) : [];
 
   function pickActualCar(m: CarModel) {
@@ -36,7 +47,6 @@
     draft.actualModel = m.model;
     draft.actualClassId = m.classId;
     carQuery = "";
-    carMatches = [];
   }
   function clearActualCar() {
     draft.actualBrand = "";
@@ -46,6 +56,8 @@
 
   function startEdit() {
     draft = $booking ? { ...$booking } : blankDraft();
+    manualClass = draft.expectedClassId;
+    showManual = !decodeAcriss(draft.acrissCode ?? "").valid && !!draft.acrissCode;
     carQuery = "";
     mode = "edit";
   }
@@ -54,10 +66,8 @@
     else draft = blankDraft();
   }
   function save() {
-    if (!draft.ref.trim()) {
-      draft.ref = "My Sixt rental";
-    }
-    booking.set({ ...draft });
+    if (!draft.ref.trim()) draft.ref = "My Sixt rental";
+    booking.set({ ...draft, expectedClassId: resolvedClassId });
     mode = "view";
   }
   function remove() {
@@ -71,6 +81,7 @@
   $: pickupStation = current?.pickupStationId
     ? STATION_BY_ID[current.pickupStationId]
     : undefined;
+  $: bookedDecoded = current ? decodeAcriss(current.acrissCode ?? "") : null;
   $: expectedClass = current ? CAR_CLASS_BY_ID[current.expectedClassId] : undefined;
   $: actualClass = current?.actualClassId
     ? CAR_CLASS_BY_ID[current.actualClassId]
@@ -79,10 +90,11 @@
   type Status = "reserved" | "match" | "mismatch";
   $: status = ((): Status => {
     if (!current?.actualClassId) return "reserved";
-    return current.actualClassId === current.expectedClassId ? "match" : "mismatch";
+    return current.actualClassId === current.expectedClassId
+      ? "match"
+      : "mismatch";
   })();
 
-  // anchor for swap search: pickup station, else device location
   $: anchor = pickupStation
     ? { lat: pickupStation.lat, lng: pickupStation.lng }
     : $myLocation;
@@ -110,83 +122,99 @@
     return list.slice(0, 8);
   })();
 
+  function originPoint() {
+    if (pickupStation) {
+      return {
+        lat: pickupStation.lat,
+        lng: pickupStation.lng,
+        label: pickupStation.name
+      };
+    }
+    if ($myLocation) return { ...$myLocation, label: "Current location" };
+    return undefined;
+  }
+
   function planSwapTo(s: ScoredStation) {
     if (!current) return;
-    const origin = pickupStation
-      ? {
-          lat: pickupStation.lat,
-          lng: pickupStation.lng,
-          label: pickupStation.name
-        }
-      : $myLocation
-      ? { ...$myLocation, label: "Current location" }
-      : undefined;
     requestNavigation({
-      origin,
+      origin: originPoint(),
       dest: { lat: s.lat, lng: s.lng, label: s.name },
       carClass: current.expectedClassId
     });
   }
-
   function planSwapOpen() {
     if (!current) return;
-    const origin = pickupStation
-      ? {
-          lat: pickupStation.lat,
-          lng: pickupStation.lng,
-          label: pickupStation.name
-        }
-      : $myLocation
-      ? { ...$myLocation, label: "Current location" }
-      : undefined;
-    requestNavigation({ origin, carClass: current.expectedClassId });
+    requestNavigation({
+      origin: originPoint(),
+      carClass: current.expectedClassId
+    });
   }
-
-  // stations grouped for the <select>
-  const stationOptions = [...STATIONS].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
 </script>
 
 <div class="view">
   {#if mode === "view" && current}
-    <!-- ============ BOOKING CARD ============ -->
-    <div class="intro">
+    <!-- ===================== BOOKING CARD ===================== -->
+    <header class="vhead">
       <h2>Your booking</h2>
       <p>What Sixt is holding for you — and your move if it's the wrong car.</p>
-    </div>
+    </header>
 
     <div class="ticket">
-      <div class="ticket-top">
-        <div class="t-ref">
-          <span class="t-label">Reference</span>
-          <span class="t-val">{current.ref}</span>
+      <div class="t-row1">
+        <div>
+          <div class="t-cap">Reference</div>
+          <div class="t-ref">{current.ref}</div>
         </div>
         <div class="status-pill {status}">
-          {#if status === "reserved"}Reserved{/if}
-          {#if status === "match"}Class matched{/if}
-          {#if status === "mismatch"}Wrong class{/if}
+          {#if status === "reserved"}● Reserved{/if}
+          {#if status === "match"}● Class matched{/if}
+          {#if status === "mismatch"}● Wrong class{/if}
         </div>
       </div>
 
-      <div class="ticket-grid">
-        <div class="tg-cell">
-          <span class="tg-label">Pick-up</span>
-          <span class="tg-val">{pickupStation ? pickupStation.name : "Not set"}</span>
+      <!-- decoded vehicle -->
+      <div class="vehicle">
+        <div class="v-art">
+          <CarArt classId={current.expectedClassId} />
         </div>
-        <div class="tg-cell">
-          <span class="tg-label">Dates</span>
-          <span class="tg-val">
-            {current.pickupDate || "—"}{current.returnDate ? " → " + current.returnDate : ""}
+        <div class="v-info">
+          <div class="t-cap">You booked</div>
+          <div class="v-name">
+            {current.bookedExample?.trim()
+              ? current.bookedExample
+              : expectedClass?.label}
+            <span class="orsim">or similar</span>
+          </div>
+          {#if bookedDecoded?.valid}
+            <div class="v-decode">{bookedDecoded.summary}</div>
+            <div class="v-class">
+              {expectedClass?.label} class
+              <span class="v-code">{bookedDecoded.code}</span>
+            </div>
+          {:else if current.acrissCode}
+            <div class="v-class">{expectedClass?.label} class</div>
+          {:else}
+            <div class="v-class">{expectedClass?.label} class</div>
+          {/if}
+        </div>
+      </div>
+
+      <div class="t-grid">
+        <div class="tg">
+          <span class="t-cap">Pick-up</span>
+          <span class="tg-v">{pickupStation ? pickupStation.name : "Not set"}</span>
+        </div>
+        <div class="tg">
+          <span class="t-cap">Dates</span>
+          <span class="tg-v">
+            {current.pickupDate || "—"}{current.returnDate
+              ? " → " + current.returnDate
+              : ""}
           </span>
         </div>
-        <div class="tg-cell">
-          <span class="tg-label">Booked class</span>
-          <span class="tg-val">{expectedClass?.label}</span>
-        </div>
-        <div class="tg-cell">
-          <span class="tg-label">Assigned car</span>
-          <span class="tg-val">
+        <div class="tg">
+          <span class="t-cap">Assigned car</span>
+          <span class="tg-v">
             {#if current.actualBrand}
               {current.actualBrand} {current.actualModel}
             {:else}
@@ -194,46 +222,48 @@
             {/if}
           </span>
         </div>
+        <div class="tg">
+          <span class="t-cap">Assigned class</span>
+          <span class="tg-v">{actualClass ? actualClass.label : "—"}</span>
+        </div>
       </div>
 
       {#if current.notes}
-        <div class="notes">“{current.notes}”</div>
+        <div class="t-notes">“{current.notes}”</div>
       {/if}
     </div>
 
-    <!-- ============ STATUS EXPLAINER ============ -->
-    <div class="explainer {status}">
+    <!-- ===================== STATUS ===================== -->
+    <div class="explain {status}">
       {#if status === "reserved"}
         <strong>Awaiting pick-up.</strong>
-        You've booked a <b>{expectedClass?.label}</b>. Once you're at the
-        counter and see the actual car, add it below — if it's not what you
-        want, the swap finder kicks in.
+        You've booked a <b>{expectedClass?.label}</b>
+        ({current.bookedExample?.trim() || "category"} or similar). At the
+        counter, add the actual car below — if it's not what you want, the swap
+        finder kicks in.
       {:else if status === "match"}
         <strong>You got your class.</strong>
-        Sixt assigned a {current.actualBrand} {current.actualModel}, which is a
+        The {current.actualBrand} {current.actualModel} is a
         <b>{actualClass?.label}</b> — exactly what you booked. Nothing to do.
       {:else}
         <strong>Mismatch.</strong>
-        You booked a <b>{expectedClass?.label}</b> but were given a
+        You booked a <b>{expectedClass?.label}</b> but were handed a
         {current.actualBrand} {current.actualModel}
-        (<b>{actualClass?.label}</b>). Below are the nearest stations most
-        likely to have a {expectedClass?.label} so you can swap.
+        (<b>{actualClass?.label}</b>). Here's where to swap.
       {/if}
     </div>
 
-    <!-- ============ SWAP FINDER ============ -->
+    <!-- ===================== SWAP FINDER ===================== -->
     {#if status !== "match"}
-      <div class="section-head">
-        <h3>
-          Where to swap for a {expectedClass?.label}
-        </h3>
-        <button class="link-btn" on:click={planSwapOpen}>Plan route ›</button>
+      <div class="sec-head">
+        <h3>Swap for a {expectedClass?.label}</h3>
+        <button class="link" on:click={planSwapOpen}>Plan route ›</button>
       </div>
-      <p class="section-sub">
+      <p class="sec-sub">
         {anchor
           ? `Best odds within 180 km of ${pickupStation ? pickupStation.name : "you"}.`
-          : "Set a pick-up station to rank these by distance."}
-        Tap one to route there.
+          : "Set a pick-up station to rank by distance."}
+        Tap to route there.
       </p>
 
       <div class="swap-list">
@@ -244,38 +274,45 @@
               <div class="sr-name">{s.name}</div>
               <div class="sr-meta">
                 {s.type} · fleet {s.fleet}{anchor && s.fromRouteKm > 0
-                  ? " · " + Math.round(s.fromRouteKm) + " km away"
+                  ? " · " + Math.round(s.fromRouteKm) + " km"
                   : ""}
               </div>
             </div>
-            <svg class="sr-go" viewBox="0 0 24 24" width="18" height="18">
-              <path d="m9 6 6 6-6 6" fill="none" stroke="currentColor"
-                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <svg class="sr-go" viewBox="0 0 24 24" width="17" height="17">
+              <path
+                d="m9 6 6 6-6 6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
           </button>
         {/each}
       </div>
     {/if}
 
-    <div class="card-actions">
+    <div class="vactions">
       <button class="btn ghost" on:click={remove}>Delete</button>
       <button class="btn ghost" on:click={startEdit}>Edit booking</button>
     </div>
 
   {:else}
-    <!-- ============ ENTRY FORM ============ -->
-    <div class="intro">
+    <!-- ===================== FORM ===================== -->
+    <header class="vhead">
       <h2>{$booking ? "Edit booking" : "Add your booking"}</h2>
       <p>
-        Sixt has no public API, so enter your rental details once. The app
-        keeps them on this device and uses them to plan swaps.
+        Enter the details from your Sixt confirmation. They stay on this device
+        — the app uses them to decode your car and plan swaps.
       </p>
-    </div>
+    </header>
 
     <div class="form">
       <label class="field">
-        <span class="f-label">Booking reference</span>
+        <span class="f-lab">Booking reference</span>
         <input
+          class="ipt"
           type="text"
           placeholder="e.g. 9123456789"
           bind:value={draft.ref}
@@ -283,59 +320,119 @@
         />
       </label>
 
-      <label class="field">
-        <span class="f-label">Pick-up station</span>
-        <select bind:value={draft.pickupStationId}>
-          <option value="">— Select a station —</option>
-          {#each stationOptions as s}
-            <option value={s.id}>{s.name}</option>
-          {/each}
-        </select>
-      </label>
+      <!-- ACRISS -->
+      <div class="field">
+        <span class="f-lab">ACRISS / SIPP code</span>
+        <input
+          class="ipt code-ipt"
+          type="text"
+          placeholder="4 letters — e.g. PDAR"
+          maxlength="4"
+          bind:value={draft.acrissCode}
+          autocapitalize="characters"
+          autocomplete="off"
+        />
 
-      <div class="field-row">
-        <label class="field">
-          <span class="f-label">Pick-up date</span>
-          <input type="date" bind:value={draft.pickupDate} />
-        </label>
-        <label class="field">
-          <span class="f-label">Return date</span>
-          <input type="date" bind:value={draft.returnDate} />
-        </label>
+        {#if (draft.acrissCode ?? "").length === 0}
+          <div class="hint-chips">
+            {#each ACRISS_EXAMPLES.slice(0, 5) as ex}
+              <button
+                type="button"
+                class="hint-chip"
+                on:click={() => (draft.acrissCode = ex.code)}
+              >{ex.code}</button>
+            {/each}
+          </div>
+          <div class="f-help">
+            Found next to the car on your confirmation. No code? Pick a class
+            below instead.
+          </div>
+        {:else if draftDecoded.valid}
+          <div class="decode ok">
+            <div class="d-art"><CarArt classId={draftDecoded.classId} compact /></div>
+            <div class="d-text">
+              <div class="d-summary">{draftDecoded.summary}</div>
+              <div class="d-class">
+                Counts as <b>{CAR_CLASS_BY_ID[draftDecoded.classId].label}</b>
+              </div>
+            </div>
+          </div>
+        {:else}
+          <div class="decode bad">
+            <span>“{draft.acrissCode}” isn't a standard 4-letter code. Check it, or pick a class below.</span>
+          </div>
+        {/if}
+
+        {#if !draftDecoded.valid}
+          {#if showManual}
+            <select class="ipt" bind:value={manualClass}>
+              {#each CAR_CLASSES as c}
+                <option value={c.id}>{c.label}</option>
+              {/each}
+            </select>
+          {:else}
+            <button
+              type="button"
+              class="textlink"
+              on:click={() => (showManual = true)}
+            >Pick a class manually ›</button>
+          {/if}
+        {/if}
       </div>
 
       <label class="field">
-        <span class="f-label">Class you booked</span>
-        <select bind:value={draft.expectedClassId}>
-          {#each CAR_CLASSES as c}
-            <option value={c.id}>{c.label}</option>
-          {/each}
-        </select>
+        <span class="f-lab">Car shown <em>(the “… or similar” model)</em></span>
+        <input
+          class="ipt"
+          type="text"
+          placeholder="e.g. BMW 3 Series"
+          bind:value={draft.bookedExample}
+        />
       </label>
 
       <div class="field">
-        <span class="f-label">Car you were actually given <em>(optional)</em></span>
+        <span class="f-lab">Pick-up station</span>
+        <StationSearchField
+          stationId={draft.pickupStationId ?? ""}
+          on:select={(e) => (draft.pickupStationId = e.detail)}
+        />
+      </div>
+
+      <div class="frow">
+        <label class="field">
+          <span class="f-lab">Pick-up date</span>
+          <input class="ipt" type="date" bind:value={draft.pickupDate} />
+        </label>
+        <label class="field">
+          <span class="f-lab">Return date</span>
+          <input class="ipt" type="date" bind:value={draft.returnDate} />
+        </label>
+      </div>
+
+      <div class="field">
+        <span class="f-lab">Car you were actually given <em>(optional)</em></span>
         {#if draft.actualBrand}
-          <div class="picked-car">
+          <div class="picked">
             <div>
               <b>{draft.actualBrand} {draft.actualModel}</b>
               <small>{draft.actualClassId
                 ? CAR_CLASS_BY_ID[draft.actualClassId].label
                 : ""}</small>
             </div>
-            <button class="mini" on:click={clearActualCar} aria-label="Clear">×</button>
+            <button class="clr" on:click={clearActualCar} aria-label="Clear">×</button>
           </div>
         {:else}
           <input
+            class="ipt"
             type="text"
             placeholder="Search — e.g. VW Golf, BMW X1"
             bind:value={carQuery}
             autocomplete="off"
           />
           {#if carMatches.length}
-            <div class="ac-list">
+            <div class="ac">
               {#each carMatches as m}
-                <button class="ac-item" on:click={() => pickActualCar(m)}>
+                <button class="ac-row" on:click={() => pickActualCar(m)}>
                   <b>{m.brand} {m.model}</b>
                   <small>{CAR_CLASS_BY_ID[m.classId].label}</small>
                 </button>
@@ -346,15 +443,16 @@
       </div>
 
       <label class="field">
-        <span class="f-label">Notes <em>(optional)</em></span>
+        <span class="f-lab">Notes <em>(optional)</em></span>
         <textarea
+          class="ipt"
           rows="2"
-          placeholder="Counter desk hours, agent name, anything useful…"
+          placeholder="Counter hours, agent name, anything useful…"
           bind:value={draft.notes}
         ></textarea>
       </label>
 
-      <div class="form-actions">
+      <div class="factions">
         {#if $booking}
           <button class="btn ghost" on:click={cancelEdit}>Cancel</button>
         {/if}
@@ -367,41 +465,33 @@
 </div>
 
 <style>
-  .view { padding: 14px 12px 60px; max-width: 640px; margin: 0 auto; }
+  .view { padding: 16px 14px 70px; max-width: 640px; margin: 0 auto; }
 
-  .intro h2 { margin: 4px 2px; font-size: 21px; font-weight: 800; }
-  .intro p {
-    margin: 0 2px 14px;
-    font-size: 13.5px;
-    color: var(--text-2);
-    line-height: 1.5;
-  }
+  .vhead h2 { margin: 2px 2px 4px; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+  .vhead p { margin: 0 2px 16px; font-size: 14px; color: var(--text-2); line-height: 1.5; }
 
-  /* ---- ticket ---- */
+  /* ---------- ticket ---------- */
   .ticket {
-    background: linear-gradient(135deg, #ffffff 0%, #fff7f1 100%);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 14px;
-    box-shadow: var(--shadow-1);
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 16px;
+    box-shadow: var(--shadow-2);
   }
-  .ticket-top {
+  .t-row1 {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 10px;
-    padding-bottom: 12px;
-    border-bottom: 1px dashed var(--line);
   }
-  .t-ref { display: flex; flex-direction: column; }
-  .t-label {
-    font-size: 10px;
+  .t-cap {
+    font-size: 10.5px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--muted);
+    font-weight: 600;
   }
-  .t-val {
-    font-size: 18px;
+  .t-ref {
+    font-size: 19px;
     font-weight: 800;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     margin-top: 2px;
@@ -410,79 +500,106 @@
     flex-shrink: 0;
     font-size: 11.5px;
     font-weight: 700;
-    padding: 5px 10px;
-    border-radius: 8px;
+    padding: 6px 11px;
+    border-radius: 100px;
     white-space: nowrap;
   }
   .status-pill.reserved { background: var(--blue-soft); color: var(--blue); }
   .status-pill.match { background: rgba(52,199,89,0.16); color: #1f8a3b; }
   .status-pill.mismatch { background: rgba(255,159,10,0.18); color: #b9710a; }
 
-  .ticket-grid {
+  .vehicle {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 14px 0;
+    padding: 12px;
+    background: linear-gradient(135deg, var(--surface-2), #eef1f6);
+    border-radius: 16px;
+  }
+  .v-art { width: 116px; flex-shrink: 0; }
+  .v-info { min-width: 0; }
+  .v-name {
+    font-size: 17px;
+    font-weight: 700;
+    margin-top: 2px;
+    letter-spacing: -0.01em;
+  }
+  .orsim { font-size: 12px; font-weight: 500; color: var(--muted); }
+  .v-decode { font-size: 12.5px; color: var(--text-2); margin-top: 3px; }
+  .v-class {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .v-code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--surface-3);
+    color: var(--text-2);
+    padding: 1px 6px;
+    border-radius: 5px;
+  }
+
+  .t-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    padding-top: 12px;
+    gap: 13px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line-soft);
   }
-  .tg-cell { display: flex; flex-direction: column; min-width: 0; }
-  .tg-label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--muted);
-  }
-  .tg-val { font-size: 14px; font-weight: 600; margin-top: 3px; }
+  .tg { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .tg-v { font-size: 14px; font-weight: 600; }
 
-  .notes {
-    margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px dashed var(--line);
+  .t-notes {
+    margin-top: 13px;
+    padding-top: 11px;
+    border-top: 1px solid var(--line-soft);
     font-size: 13px;
-    color: var(--text-2);
     font-style: italic;
+    color: var(--text-2);
   }
 
-  /* ---- explainer ---- */
-  .explainer {
+  /* ---------- explainer ---------- */
+  .explain {
     margin-top: 12px;
-    border-radius: 12px;
-    padding: 12px 14px;
+    border-radius: 14px;
+    padding: 13px 15px;
     font-size: 13.5px;
     line-height: 1.55;
     color: var(--text-2);
   }
-  .explainer strong { color: var(--text); }
-  .explainer.reserved { background: var(--blue-soft); }
-  .explainer.match { background: rgba(52,199,89,0.12); }
-  .explainer.mismatch { background: rgba(255,159,10,0.14); }
+  .explain strong { color: var(--text); }
+  .explain.reserved { background: var(--blue-soft); }
+  .explain.match { background: rgba(52,199,89,0.12); }
+  .explain.mismatch { background: rgba(255,159,10,0.14); }
 
-  /* ---- swap finder ---- */
-  .section-head {
+  /* ---------- swap finder ---------- */
+  .sec-head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    margin: 18px 2px 2px;
+    margin: 20px 2px 2px;
     gap: 10px;
   }
-  .section-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
-  .link-btn {
+  .sec-head h3 { margin: 0; font-size: 17px; font-weight: 700; }
+  .link {
     border: none;
     background: transparent;
     color: var(--blue);
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 600;
     flex-shrink: 0;
   }
-  .section-sub {
-    margin: 4px 2px 10px;
-    font-size: 12.5px;
-    color: var(--muted);
-    line-height: 1.45;
-  }
+  .sec-sub { margin: 4px 2px 11px; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
 
   .swap-list {
     background: var(--surface);
-    border-radius: 14px;
+    border-radius: 16px;
     box-shadow: var(--shadow-1);
     overflow: hidden;
   }
@@ -507,69 +624,101 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .sr-meta {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 2px;
-    text-transform: capitalize;
-  }
+  .sr-meta { font-size: 12px; color: var(--muted); margin-top: 2px; text-transform: capitalize; }
   .sr-go { color: var(--muted); flex-shrink: 0; }
 
-  .card-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 18px;
-  }
+  .vactions { display: flex; gap: 9px; margin-top: 20px; }
 
-  /* ---- form ---- */
+  /* ---------- form ---------- */
   .form {
     background: var(--surface);
-    border-radius: 16px;
-    box-shadow: var(--shadow-1);
-    padding: 14px;
+    border-radius: 20px;
+    box-shadow: var(--shadow-2);
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 13px;
+    gap: 15px;
   }
-  .field { display: flex; flex-direction: column; gap: 5px; }
-  .field-row { display: flex; gap: 10px; }
-  .field-row .field { flex: 1; }
-  .f-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-2);
-  }
-  .f-label em { color: var(--muted); font-weight: 400; font-style: normal; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .frow { display: flex; gap: 11px; }
+  .frow .field { flex: 1; }
+  .f-lab { font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+  .f-lab em { color: var(--muted); font-weight: 400; font-style: normal; }
+  .f-help { font-size: 12px; color: var(--muted); line-height: 1.45; }
 
-  input,
-  select,
-  textarea {
+  .ipt {
     border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 10px 11px;
+    border-radius: 11px;
+    padding: 11px 12px;
     font-size: 15px;
     background: var(--surface);
     color: var(--text);
     outline: none;
     width: 100%;
   }
-  input:focus,
-  select:focus,
-  textarea:focus { border-color: var(--blue); }
-  textarea { resize: vertical; font-family: inherit; }
+  .ipt:focus { border-color: var(--blue); }
+  textarea.ipt { resize: vertical; font-family: inherit; }
+  .code-ipt {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
 
-  .picked-car {
+  .hint-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .hint-chip {
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--text-2);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 9px;
+    border-radius: 8px;
+  }
+  .hint-chip:active { transform: scale(0.95); }
+
+  .decode {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .decode.ok { background: rgba(52,199,89,0.12); }
+  .decode.bad {
+    background: rgba(255,159,10,0.14);
+    font-size: 12.5px;
+    color: #9a6206;
+    line-height: 1.45;
+  }
+  .d-art { width: 72px; flex-shrink: 0; }
+  .d-summary { font-size: 13.5px; font-weight: 600; }
+  .d-class { font-size: 12.5px; color: var(--text-2); margin-top: 2px; }
+
+  .textlink {
+    align-self: flex-start;
+    border: none;
+    background: transparent;
+    color: var(--blue);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 2px 0;
+  }
+
+  .picked {
     display: flex;
     align-items: center;
     justify-content: space-between;
     border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 9px 11px;
+    border-radius: 11px;
+    padding: 10px 12px;
     background: var(--surface-2);
   }
-  .picked-car b { font-size: 14.5px; }
-  .picked-car small { display: block; font-size: 12px; color: var(--muted); }
-  .mini {
+  .picked b { font-size: 14.5px; }
+  .picked small { display: block; font-size: 12px; color: var(--muted); }
+  .clr {
     border: none;
     background: var(--surface-3);
     color: var(--muted);
@@ -580,33 +729,32 @@
     flex-shrink: 0;
   }
 
-  .ac-list {
+  .ac {
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 11px;
     overflow: hidden;
-    margin-top: 4px;
   }
-  .ac-item {
+  .ac-row {
     width: 100%;
     text-align: left;
     background: var(--surface);
     border: none;
     border-bottom: 1px solid var(--line-soft);
-    padding: 9px 11px;
+    padding: 10px 12px;
   }
-  .ac-item:last-child { border-bottom: none; }
-  .ac-item:active { background: var(--surface-2); }
-  .ac-item b { font-size: 14px; }
-  .ac-item small { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .ac-row:last-child { border-bottom: none; }
+  .ac-row:active { background: var(--surface-2); }
+  .ac-row b { font-size: 14px; }
+  .ac-row small { color: var(--muted); font-size: 12px; margin-left: 6px; }
 
-  .form-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .factions { display: flex; gap: 9px; margin-top: 4px; }
 
   .btn {
     flex: 1;
     border: none;
-    border-radius: 11px;
-    padding: 12px;
-    font-size: 14.5px;
+    border-radius: 13px;
+    padding: 13px;
+    font-size: 15px;
     font-weight: 700;
   }
   .btn.ghost {

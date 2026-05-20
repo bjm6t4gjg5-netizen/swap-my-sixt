@@ -202,8 +202,10 @@
 
 <style>
   .panel {
-    background: var(--surface);
-    border-radius: 14px;
+    background: var(--material);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border-radius: 16px;
     box-shadow: var(--shadow-2);
     overflow: hidden;
   }

@@ -58,9 +58,14 @@ export interface ScoredStation extends Station {
 
 export interface Booking {
   ref: string;
+  /** 4-letter ACRISS/SIPP code from the rental confirmation, e.g. "PDAR". */
+  acrissCode?: string;
+  /** The representative model Sixt quoted, e.g. "BMW 3 Series" ("… or similar"). */
+  bookedExample?: string;
   pickupStationId?: string;
   pickupDate?: string;
   returnDate?: string;
+  /** Internal class — derived from the ACRISS code, or chosen manually. */
   expectedClassId: CarClassId;
   actualBrand?: string;
   actualModel?: string;

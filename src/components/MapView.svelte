@@ -495,7 +495,9 @@
 
 <style>
   .mapview { position: absolute; inset: 0; }
-  .map { position: absolute; inset: 0; background: #e6e4e0; }
+  /* z-index:0 gives the map its own stacking context so Leaflet's internal
+     panes (z-index 200–700) stay contained and don't cover the UI. */
+  .map { position: absolute; inset: 0; z-index: 0; background: #e6e4e0; }
 
   .top {
     position: absolute;
@@ -509,10 +511,12 @@
     position: absolute;
     right: 12px;
     bottom: 116px;
-    width: 44px;
-    height: 44px;
+    width: 46px;
+    height: 46px;
     border-radius: 50%;
-    background: var(--surface);
+    background: var(--material-2);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
     border: none;
     box-shadow: var(--shadow-2);
     color: var(--blue);
@@ -544,8 +548,10 @@
     right: 10px;
     bottom: 10px;
     z-index: 35;
-    background: var(--surface);
-    border-radius: 16px;
+    background: var(--material-2);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border-radius: 20px;
     box-shadow: var(--shadow-2);
     max-height: 78%;
     overflow-y: auto;
