@@ -339,18 +339,52 @@
     });
   })();
 
-  // Brands available to filter by (only those with something to recommend).
+  // Filter options — only values that actually exist in the reachable pool.
   $: recoBrands = Array.from(new Set(recoPool.map((v) => v.brand))).sort();
-  let recoBrand = "All";
-  // If the chosen brand stops having recommendations, fall back to "All".
-  $: if (recoBrand !== "All" && !recoBrands.includes(recoBrand)) recoBrand = "All";
+  $: recoFuels = Array.from(new Set(recoPool.map((v) => v.fuel as string))).sort();
+  $: recoBodies = Array.from(new Set(recoPool.map((v) => v.body as string))).sort();
+  $: recoDrives = Array.from(new Set(recoPool.map((v) => v.drivetrain as string))).sort();
 
-  // Final list: one variant per family, easiest upgrade first, max 6.
+  let recoBrand = "All";
+  let recoFuel = "Any";
+  let recoBody = "Any";
+  let recoDrive = "Any";
+  let recoMinSpeed = 0;
+
+  // Drop any filter back to its default if its value is no longer offered.
+  $: if (recoBrand !== "All" && !recoBrands.includes(recoBrand)) recoBrand = "All";
+  $: if (recoFuel !== "Any" && !recoFuels.includes(recoFuel)) recoFuel = "Any";
+  $: if (recoBody !== "Any" && !recoBodies.includes(recoBody)) recoBody = "Any";
+  $: if (recoDrive !== "Any" && !recoDrives.includes(recoDrive)) recoDrive = "Any";
+
+  $: recoFiltered =
+    recoBrand !== "All" ||
+    recoFuel !== "Any" ||
+    recoBody !== "Any" ||
+    recoDrive !== "Any" ||
+    recoMinSpeed > 0;
+
+  function clearRecoFilters() {
+    recoBrand = "All";
+    recoFuel = "Any";
+    recoBody = "Any";
+    recoDrive = "Any";
+    recoMinSpeed = 0;
+  }
+
+  /** Tidy a body-shape id for display. */
+  function bodyLabel(b: string): string {
+    return b === "suv" ? "SUV" : b.charAt(0).toUpperCase() + b.slice(1);
+  }
+
+  // Final list: filters applied, one variant per family, easiest first, max 6.
   $: recommendations = ((): CarVariant[] => {
-    const pool =
-      recoBrand === "All"
-        ? recoPool
-        : recoPool.filter((v) => v.brand === recoBrand);
+    let pool = recoPool;
+    if (recoBrand !== "All") pool = pool.filter((v) => v.brand === recoBrand);
+    if (recoFuel !== "Any") pool = pool.filter((v) => v.fuel === recoFuel);
+    if (recoBody !== "Any") pool = pool.filter((v) => v.body === recoBody);
+    if (recoDrive !== "Any") pool = pool.filter((v) => v.drivetrain === recoDrive);
+    if (recoMinSpeed > 0) pool = pool.filter((v) => v.topSpeed >= recoMinSpeed);
     const byFamily = new Map<string, CarVariant>();
     for (const v of pool) {
       const key = `${v.brand} ${v.family}`;
@@ -445,6 +479,9 @@
     const d = carTier(c) - bookedTier;
     if (d > 0) return { sym: "▲", cls: "up", txt: `+${d}` };
     if (d < 0) return { sym: "▼", cls: "down", txt: `${d}` };
+    // same base class — but an Elite booking (e.g. GEAR) sits a notch higher,
+    // so a plain same-class car is a hair short, not a true match.
+    if (bookedElite) return { sym: "≈", cls: "warn", txt: "base" };
     return { sym: "=", cls: "same", txt: "same" };
   }
 
@@ -453,13 +490,21 @@
     const cls = CAR_CLASS_BY_ID[c.classId];
     if (!expectedClass) return cls.label;
     const d = cls.tier - expectedClass.tier;
-    const dir =
-      d > 0
-        ? `${d} tier${d > 1 ? "s" : ""} above`
-        : d < 0
-          ? `${-d} tier${-d > 1 ? "s" : ""} below`
-          : "same tier as";
-    let base = `${cls.label} — ${dir} your ${expectedClass.label}`;
+    let base: string;
+    if (d === 0 && bookedElite) {
+      // Elite booking: a plain same-class car is a notch short, not a match
+      base =
+        `${cls.label} — matches the base ${expectedClass.label}, but your code ` +
+        `${bookedDecoded?.code ?? ""} is an Elite trim, so this is a notch below your booking`;
+    } else {
+      const dir =
+        d > 0
+          ? `${d} tier${d > 1 ? "s" : ""} above`
+          : d < 0
+            ? `${-d} tier${-d > 1 ? "s" : ""} below`
+            : "same tier as";
+      base = `${cls.label} — ${dir} your ${expectedClass.label}`;
+    }
     const v = negVariant(c);
     if (v && bookedVariant) {
       const diffs: string[] = [];
@@ -678,6 +723,33 @@
             </div>
           {/if}
 
+          {#if recoPool.length > 0}
+            <div class="reco-filters">
+              <select class="rf" bind:value={recoFuel} aria-label="Fuel type">
+                <option value="Any">Any fuel</option>
+                {#each recoFuels as f}<option value={f}>{f}</option>{/each}
+              </select>
+              <select class="rf" bind:value={recoBody} aria-label="Body type">
+                <option value="Any">Any body</option>
+                {#each recoBodies as b}<option value={b}>{bodyLabel(b)}</option>{/each}
+              </select>
+              <select class="rf" bind:value={recoDrive} aria-label="Drivetrain">
+                <option value="Any">Any drive</option>
+                {#each recoDrives as d}<option value={d}>{d}</option>{/each}
+              </select>
+              <select class="rf" bind:value={recoMinSpeed} aria-label="Minimum top speed">
+                <option value={0}>Any speed</option>
+                <option value={200}>200+ km/h</option>
+                <option value={220}>220+ km/h</option>
+                <option value={240}>240+ km/h</option>
+                <option value={250}>250 km/h only</option>
+              </select>
+            </div>
+            {#if recoFiltered}
+              <button class="reco-clear" on:click={clearRecoFilters}>↺ Clear filters</button>
+            {/if}
+          {/if}
+
           {#if recommendations.length}
             <div class="reco-list">
               {#each recommendations as v (v.id)}
@@ -697,9 +769,13 @@
             </div>
           {:else}
             <div class="reco-empty">
-              {recoBrand === "All"
-                ? "Your booked class is already near the top — focus on getting at least what you booked."
-                : `No ${recoBrand} upgrades within reach at this branch — try another brand.`}
+              {#if recoFiltered}
+                No cars match these filters at this branch — loosen one, or
+                <button class="reco-clear inline" on:click={clearRecoFilters}>clear filters</button>.
+              {:else}
+                Your booked class is already near the top — focus on getting at
+                least what you booked.
+              {/if}
             </div>
           {/if}
         </div>
@@ -1352,6 +1428,45 @@
     color: white;
   }
   .rb:active { transform: scale(0.95); }
+
+  .reco-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .rf {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    min-height: 34px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background-color: var(--surface);
+    color: var(--text);
+    font-size: 12.5px;
+    font-weight: 600;
+    font-family: inherit;
+    padding: 0 26px 0 9px;
+    outline: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+  }
+  .rf:focus { border-color: var(--blue); }
+  .reco-clear {
+    border: none;
+    background: transparent;
+    color: var(--blue);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 0 2px 8px;
+  }
+  .reco-clear.inline { padding: 0; font-size: inherit; font-weight: 600; }
+  @media (min-width: 540px) {
+    .reco-filters { grid-template-columns: repeat(4, 1fr); }
+  }
+
   .reco-list { display: flex; flex-direction: column; gap: 7px; }
   .reco-card {
     display: flex;
@@ -1445,6 +1560,7 @@
   }
   .delta.up { background: rgba(52,199,89,0.16); color: #1f8a3b; }
   .delta.down { background: rgba(255,59,48,0.14); color: #c5362c; }
+  .delta.warn { background: rgba(255,159,10,0.18); color: #b9710a; }
   .delta.same { background: var(--surface-3); color: var(--muted); }
   .ncar-x {
     flex-shrink: 0;

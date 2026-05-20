@@ -1,4 +1,4 @@
-# Swap my Sixt — v3.9
+# Swap my Sixt — v3.10
 
 A navigation web app that helps you swap a Sixt rental into the car you
 actually want. Plan a route, see every Sixt station along it, and get a live
@@ -40,8 +40,10 @@ concrete difference vs your booked car ("+88 hp, AWD vs RWD"). It factors in
 your Sixt loyalty status, flags what counts as a good deal, and tells you
 whether to accept, hold out, or point at a specific better car. Set the branch
 and it also suggests **specific cars worth asking for** — realistic upgrades
-within reach of that branch type and your status, filterable by brand, so you
-can hand the agent a concrete name instead of a vague "something nicer".
+within reach of that branch type and your status, filterable by brand, fuel,
+body, drivetrain and minimum top speed, so you can hand the agent a concrete
+name instead of a vague "something nicer". When your ACRISS code is an "Elite"
+category, a plain same-class car is flagged as a notch short — not a match.
 
 **Ask the analyst — offline too.** Lucas now works with **no API key** out of
 the box: a witty rule-based mode covering swaps, negotiation, ACRISS codes and
@@ -137,18 +139,27 @@ proceed. The certificate warning is expected for a local self-signed cert.
 
 ## Troubleshooting
 
-**Deployed site shows a blank white page.** This means GitHub Pages is serving
-the raw repository source instead of the built `dist/` folder. Fix it:
+**Deployed site shows a blank white page.** The repo itself is fine — a white
+page almost always means GitHub Pages is serving the **raw repository source**
+(an `index.html` that points at `/src/main.ts`, which a browser can't run)
+instead of the **built `dist/` folder** the workflow produces. Work through
+this in order:
 
-1. Repo **Settings → Pages → Build and deployment → Source** → set to
-   **GitHub Actions** (not "Deploy from a branch").
-2. Open the **Actions** tab and confirm the latest "Deploy to GitHub Pages"
-   run is green. If it never ran, push any commit to trigger it.
-3. The workflow now also sets `enablement: true`, so a fresh push should
-   self-correct the Pages configuration.
+1. **Settings → Pages → Build and deployment → Source** must be
+   **GitHub Actions** — *not* "Deploy from a branch". This is the single most
+   common cause; if it's on branch mode, switch it and re-run the workflow.
+2. Open the **Actions** tab. The latest "Deploy to GitHub Pages" run must be
+   **green**. If it's red, open it and read the failing step. If it never ran,
+   push any commit (or use **Run workflow** on the workflow page).
+3. Confirm you're opening the full path
+   `https://<user>.github.io/swap-my-sixt/` — the bare
+   `https://<user>.github.io/` will 404.
+4. If you previously opened the site, your browser may be holding an old
+   **service worker**. Hard-refresh (desktop: Cmd/Ctrl+Shift+R) or, on iOS,
+   close the tab and reopen — or clear the site data once.
 
-The site only works at the `/swap-my-sixt/` path — `https://<user>.github.io/`
-without the repo name will 404. Use the full URL.
+The build and `.gitignore` are correct: `dist/` is intentionally git-ignored
+because GitHub Actions rebuilds it on every push — never commit `dist/`.
 
 ## Add to your home screen
 
