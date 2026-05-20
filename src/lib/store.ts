@@ -68,10 +68,10 @@ export function targetSubLabel(t: Target): string {
 /** The user's current Sixt booking, entered manually. */
 const DEFAULT_BOOKING: Booking = {
   ref: "Husum rental",
-  acrissCode: "",
+  acrissCode: "GEAR",
   bookedExample: "BMW 4 Series 430i",
   bookedVariantId: "bmw-4-430i",
-  sixtStatus: "none",
+  sixtStatus: "diamond",
   pickupStationId: "husum",
   pickupDate: "2026-05-23",
   pickupTime: "11:30",
@@ -82,7 +82,7 @@ const DEFAULT_BOOKING: Booking = {
   notes: ""
 };
 export const booking = persisted<Booking | null>(
-  "sixt.booking.v3",
+  "sixt.booking.v4",
   DEFAULT_BOOKING
 );
 

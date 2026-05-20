@@ -1,4 +1,4 @@
-# Swap my Sixt — v4.5
+# Swap my Sixt — v5.5
 
 A navigation web app that helps you swap a Sixt rental into the car you
 actually want. Plan a route, see every Sixt station along it, and get a live
@@ -47,9 +47,11 @@ Lucas.
 summary, your target, recommended swap stops and a full ranked table of every
 Sixt station along the way. A paper reference for the drive.
 
-**Route alternatives** — like Apple Maps, the planner returns up to three
-routes. Each shows its distance and drive time; tap to compare, and the Sixt
-stations re-rank for whichever route you pick.
+**Route A / B / C** — the planner always offers up to three routes. Route A is
+the fastest; B and C are deliberate **Sixt-aware detours** that swing through
+station-dense areas the fastest route misses. Each chip shows distance, drive
+time and how many Sixt stations it passes — so a small extra drive can unlock
+more swap options.
 
 **Send to Maps** — the app doesn't try to be a navigator. The "Send to Maps"
 button (and every station's detail) opens a chooser: Apple Maps, Google Maps,

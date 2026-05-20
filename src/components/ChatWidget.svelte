@@ -8,7 +8,7 @@
     clearApiKey,
     type ChatMessage
   } from "../lib/analyst";
-  import { offlineReply } from "../lib/lucasOffline";
+  import { offlineReply, STARTER_QUESTIONS } from "../lib/lucasOffline";
   import { booking, target, targetLabel, activeTab } from "../lib/store";
   import { STATION_BY_ID } from "../lib/stations";
   import { CAR_CLASS_BY_ID } from "../lib/cars";
@@ -68,8 +68,8 @@
     showKeyPanel = false;
   }
 
-  async function send() {
-    const text = input.trim();
+  async function ask(raw: string) {
+    const text = raw.trim();
     if (!text || busy) return;
     input = "";
     error = "";
@@ -98,6 +98,10 @@
       busy = false;
       scrollDown();
     }
+  }
+
+  function send() {
+    ask(input);
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -189,6 +193,14 @@
         </span>
         <div class="bubble">{GREETING}</div>
       </div>
+
+      {#if messages.length === 0}
+        <div class="starters">
+          {#each STARTER_QUESTIONS as q}
+            <button class="starter" on:click={() => ask(q)}>{q}</button>
+          {/each}
+        </div>
+      {/if}
 
       {#each messages as m}
         {#if m.role === "assistant"}
@@ -409,6 +421,23 @@
     0%, 80%, 100% { opacity: 0.3; }
     40% { opacity: 1; }
   }
+
+  .starters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 2px 0 2px 34px;
+  }
+  .starter {
+    background: var(--surface);
+    border: 1px solid var(--blue);
+    color: var(--blue);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 7px 11px;
+    border-radius: 100px;
+  }
+  .starter:active { transform: scale(0.96); }
 
   .err {
     font-size: 12.5px;

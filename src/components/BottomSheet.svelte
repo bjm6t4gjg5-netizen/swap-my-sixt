@@ -95,7 +95,7 @@
       left: 14px;
       right: auto;
       bottom: 14px;
-      width: 388px;
+      width: 448px;
       border-radius: 20px;
       transition: max-height 0.28s ease;
     }

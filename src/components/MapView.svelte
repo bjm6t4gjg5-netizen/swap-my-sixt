@@ -10,6 +10,7 @@
   import MapsMenu from "./MapsMenu.svelte";
   import { STATIONS } from "../lib/stations";
   import { fetchRoutes } from "../lib/routing";
+  import { buildRouteOptions, type RouteOption } from "../lib/routePlanner";
   import { stationsAlongRoute, verdict } from "../lib/heuristic";
   import { formatKm, formatDuration } from "../lib/geo";
   import type { Route, ScoredStation } from "../lib/types";
@@ -30,10 +31,12 @@
 
   let origin: NamedPoint | null = null;
   let dest: NamedPoint | null = null;
-  /** All route alternatives from OSRM; index 0 is the fastest. */
-  let routes: Route[] = [];
+  /** Route options A / B / C — A is fastest, B/C are Sixt-aware detours. */
+  let routeOptions: RouteOption[] = [];
   let selectedRouteIndex = 0;
-  $: route = routes.length ? routes[selectedRouteIndex] ?? routes[0] : null;
+  $: route = routeOptions.length
+    ? (routeOptions[selectedRouteIndex] ?? routeOptions[0]).route
+    : null;
   let scored: ScoredStation[] = [];
   let selected: ScoredStation | null = null;
 
@@ -90,7 +93,7 @@
     }).setView([50.5, 9.5], 5);
 
     L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
       {
         attribution:
           '&copy; <a href="https://openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
@@ -207,11 +210,15 @@
 
   async function planRoute() {
     if (!origin || !dest) return;
-    loading = "Calculating routes…";
+    loading = "Finding routes A / B / C…";
     selected = null;
     viaStation = null;
     try {
-      routes = await fetchRoutes([origin, dest]);
+      routeOptions = await buildRouteOptions(
+        origin,
+        dest,
+        targetClassId($target)
+      );
       selectedRouteIndex = 0;
       scoreSelected();
       drawRoutes();
@@ -230,11 +237,22 @@
     if (!origin || !dest) return;
     loading = `Re-routing via ${station.name}…`;
     try {
-      routes = await fetchRoutes([
-        origin,
-        { lat: station.lat, lng: station.lng, label: station.name },
-        dest
-      ]);
+      const r = (
+        await fetchRoutes([
+          origin,
+          { lat: station.lat, lng: station.lng },
+          dest
+        ])
+      )[0];
+      routeOptions = [
+        {
+          key: "A",
+          route: r,
+          stationCount: stationsAlongRoute(r, STATIONS, targetClassId($target))
+            .length,
+          note: `Via ${station.name}`
+        }
+      ];
       selectedRouteIndex = 0;
       viaStation = station;
       scoreSelected();
@@ -252,7 +270,7 @@
 
   /** Switch to a different route alternative. */
   function selectRoute(i: number) {
-    if (i === selectedRouteIndex || i < 0 || i >= routes.length) return;
+    if (i === selectedRouteIndex || i < 0 || i >= routeOptions.length) return;
     selectedRouteIndex = i;
     selected = null;
     scoreSelected();
@@ -276,7 +294,7 @@
   function clearField(field: "origin" | "dest") {
     if (field === "origin") origin = null;
     else dest = null;
-    routes = [];
+    routeOptions = [];
     selectedRouteIndex = 0;
     scored = [];
     selected = null;
@@ -292,21 +310,22 @@
     routeLines.forEach((l) => l.remove());
     routeLines = [];
     // draw non-selected first (underneath), then the selected one on top
-    routes.forEach((r, i) => {
+    routeOptions.forEach((o, i) => {
       if (i === selectedRouteIndex) return;
       const line = L.polyline(
-        r.coordinates.map((c) => [c.lat, c.lng]),
+        o.route.coordinates.map((c) => [c.lat, c.lng]),
         { color: "#9aa0ab", weight: 5, opacity: 0.55, lineCap: "round" }
       ).addTo(map);
       line.on("click", () => selectRoute(i));
       routeLines.push(line);
     });
-    if (routes[selectedRouteIndex]) {
-      const sel = L.polyline(
-        routes[selectedRouteIndex].coordinates.map((c) => [c.lat, c.lng]),
+    const sel = routeOptions[selectedRouteIndex];
+    if (sel) {
+      const line = L.polyline(
+        sel.route.coordinates.map((c) => [c.lat, c.lng]),
         { color: "#007aff", weight: 6, opacity: 0.95, lineCap: "round" }
       ).addTo(map);
-      routeLines.push(sel);
+      routeLines.push(line);
     }
   }
 
@@ -465,17 +484,20 @@
         {/if}
       </div>
 
-      {#if routes.length > 1}
+      {#if routeOptions.length > 1}
         <div class="routes-row">
-          {#each routes as r, i}
+          {#each routeOptions as o, i}
             <button
               class="route-chip"
               class:on={i === selectedRouteIndex}
               on:click={() => selectRoute(i)}
             >
-              <div class="rc-time">{formatDuration(r.duration)}</div>
+              <div class="rc-head">
+                <span class="rc-key">Route {o.key}</span>
+                <span class="rc-time">{formatDuration(o.route.duration)}</span>
+              </div>
               <div class="rc-dist">
-                {formatKm(r.distance)} · {i === 0 ? "Fastest" : "Alt " + i}
+                {formatKm(o.route.distance)} · {o.stationCount} Sixt
               </div>
             </button>
           {/each}
@@ -524,7 +546,7 @@
           {#each scored as s (s.id)}
             <div class="row-wrap" class:best={s.id === bestId}>
               {#if s.id === bestId && s.score >= 0.5}
-                <span class="best-tag">Best odds</span>
+                <div class="best-banner">★ Best swap odds on this route</div>
               {/if}
               <StationListItem
                 station={s}
@@ -680,8 +702,21 @@
     background: var(--blue-soft);
   }
   .route-chip:active { transform: scale(0.98); }
+  .rc-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .rc-key {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--blue);
+  }
   .rc-time { font-size: 14px; font-weight: 800; letter-spacing: -0.01em; }
-  .rc-dist { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .rc-dist { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
   .targetwrap { padding: 2px 14px 10px; }
 
@@ -707,26 +742,20 @@
   .empty strong { font-size: 15px; display: block; margin-bottom: 6px; }
   .empty p { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0; }
 
-  .row-wrap { position: relative; }
-  .row-wrap.best { background: rgba(52, 199, 89, 0.06); }
-  .best-tag {
-    position: absolute;
-    top: 6px;
-    right: 14px;
-    z-index: 1;
-    font-size: 10px;
-    font-weight: 700;
+  .row-wrap.best { background: rgba(52, 199, 89, 0.05); }
+  .best-banner {
+    font-size: 10.5px;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     color: #1f8a3b;
-    background: rgba(52, 199, 89, 0.16);
-    padding: 2px 7px;
-    border-radius: 7px;
+    background: rgba(52, 199, 89, 0.14);
+    padding: 4px 16px;
   }
 
   @media (min-width: 760px) {
-    .top { width: 388px; right: auto; }
+    .top { width: 448px; right: auto; }
     .fab { bottom: 24px; right: 24px; }
-    .detail-card { left: 14px; right: auto; width: 388px; bottom: 14px; }
+    .detail-card { left: 14px; right: auto; width: 448px; bottom: 14px; }
   }
 </style>
