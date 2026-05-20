@@ -1,4 +1,4 @@
-# Swap my Sixt — v3
+# Swap my Sixt — v3.1
 
 A navigation web app that helps you swap a Sixt rental into the car you
 actually want. Plan a route, see every Sixt station along it, and get a live
@@ -17,6 +17,11 @@ fastest route via OSRM and overlays every Sixt station in the corridor,
 colour-coded by how likely it has your car. Tap a station to re-route through
 it. "GO" starts live location tracking.
 
+**Target picker** — one shared control across the app for *what you're hunting
+for*. Pick a whole class, search for a **specific car** (e.g. "BMW M3"), or
+**reset to "Any car"** to score stations by overall fleet. Every tab's
+percentages update to whatever you choose.
+
 **Booking tab** — Enter your Sixt booking once. Instead of guessing a class,
 you type the **ACRISS / SIPP code** from your confirmation (e.g. `PDAR`) and
 the app decodes it — category, body, transmission, fuel — and shows what you
@@ -33,7 +38,10 @@ code, and a "set as target" button. Search by brand/model ("BMW M3", "Tesla",
 **Stations tab** — All ~150 stations worldwide with a **List ↔ Map toggle**.
 List mode is searchable, country-filterable, and sortable by best odds / A–Z /
 nearest. Map mode drops colour-coded pins for every station in view. Tap any
-station to plan a route there.
+station for details, a route, or **Phone** — which opens Maps with the
+branch's current listed number (Sixt has no public branch-number dataset and
+routes many branches through a central line, so a live Maps lookup is the
+reliable way to get a real number).
 
 ## How the "likelihood" works
 
@@ -99,7 +107,7 @@ src/
     cars.ts               18 classes + representative models
     carVisuals.ts         per-class body shape + colour palette
     acriss.ts             ACRISS / SIPP code decoder
-    heuristic.ts          availability scoring + route filtering
+    heuristic.ts          availability scoring (incl. "any car") + route filtering
     geo.ts                haversine, point-to-segment, formatters
     routing.ts            OSRM client
     geocoding.ts          Nominatim search + reverse geocode
@@ -114,8 +122,9 @@ src/
     CarArt.svelte         SVG car illustrations
     StationsView.svelte   the Stations tab (list + map)
     StationSearchField.svelte   searchable station picker
-    StationDetail.svelte  station detail card
-    StationListItem.svelte / ProbabilityBadge.svelte / ClassPicker.svelte
+    StationDetail.svelte  station detail card (+ phone lookup)
+    TargetBar.svelte / TargetPicker.svelte   shared "hunting for" control
+    StationListItem.svelte / ProbabilityBadge.svelte
 .github/workflows/deploy.yml   build + deploy to Pages
 ```
 

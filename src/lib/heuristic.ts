@@ -82,13 +82,23 @@ export function hoursMultiplier(station: Station, when: Date = new Date()): numb
   return mult;
 }
 
-/** Full availability score for a station + car class, 0–1. */
+/** Generic availability when no class is targeted ("Any car"). */
+function genericFactor(station: Station): number {
+  return fleetBase(station.fleet);
+}
+
+/**
+ * Full availability score for a station, 0–1.
+ * Pass `null` as the class for a generic "any car" estimate.
+ */
 export function computeScore(
   station: Station,
-  classId: CarClassId,
+  classId: CarClassId | null,
   when: Date = new Date()
 ): number {
-  const factor = classFactor(station, classId);
+  const factor = classId
+    ? classFactor(station, classId)
+    : genericFactor(station);
   const boost = typeBoost(station);
   const hours = hoursMultiplier(station, when);
   return clamp((factor + boost) * hours, 0, 0.98);
@@ -122,7 +132,7 @@ export function estimateDetourMin(distFromRouteKm: number): number {
 export function stationsAlongRoute(
   route: Route,
   stations: Station[],
-  classId: CarClassId,
+  classId: CarClassId | null,
   when: Date = new Date()
 ): ScoredStation[] {
   const coords = route.coordinates;
@@ -168,7 +178,7 @@ export function stationsAlongRoute(
 export function nearestStations(
   point: LatLng,
   stations: Station[],
-  classId: CarClassId,
+  classId: CarClassId | null,
   limit = 20,
   when: Date = new Date()
 ): ScoredStation[] {

@@ -7,8 +7,8 @@
     searchCars
   } from "../lib/cars";
   import { carColor } from "../lib/carVisuals";
-  import { carClass } from "../lib/store";
-  import type { CarClassId } from "../lib/types";
+  import { target, type Target } from "../lib/store";
+  import type { CarClassId, CarModel } from "../lib/types";
   import CarArt from "./CarArt.svelte";
 
   let query = "";
@@ -17,8 +17,22 @@
   $: results = query.trim() ? searchCars(query) : [];
   $: detail = openClass ? CAR_CLASS_BY_ID[openClass] : null;
 
-  function setTarget(id: CarClassId) {
-    carClass.set(id);
+  function setClassTarget(id: CarClassId) {
+    target.set({ kind: "class", classId: id });
+  }
+  function setModelTarget(m: CarModel) {
+    target.set({
+      kind: "model",
+      classId: m.classId,
+      brand: m.brand,
+      model: m.model
+    });
+  }
+  function isClassTarget(t: Target, id: CarClassId): boolean {
+    return t.kind !== "any" && t.classId === id;
+  }
+  function isModelTarget(t: Target, m: CarModel): boolean {
+    return t.kind === "model" && t.brand === m.brand && t.model === m.model;
   }
   /** soft tinted background from the class colour */
   function tint(id: CarClassId, alphaHex: string) {
@@ -80,10 +94,10 @@
           </div>
           <button
             class="mini-target"
-            class:on={$carClass === m.classId}
-            on:click|stopPropagation={() => setTarget(m.classId)}
+            class:on={isModelTarget($target, m)}
+            on:click|stopPropagation={() => setModelTarget(m)}
           >
-            {$carClass === m.classId ? "✓" : "Target"}
+            {isModelTarget($target, m) ? "✓" : "Target"}
           </button>
         </div>
       {:else}
@@ -96,12 +110,12 @@
         {@const count = modelsInClass(c.id).length}
         <button
           class="card"
-          class:target={$carClass === c.id}
+          class:target={isClassTarget($target, c.id)}
           on:click={() => (openClass = c.id)}
         >
           <div class="card-art" style="background:{tint(c.id, '1f')}">
             <CarArt classId={c.id} />
-            {#if $carClass === c.id}
+            {#if isClassTarget($target, c.id)}
               <span class="tgt-badge">Target</span>
             {/if}
           </div>
@@ -148,10 +162,10 @@
 
         <button
           class="m-target"
-          class:on={$carClass === detail.id}
-          on:click={() => setTarget(detail.id)}
+          class:on={isClassTarget($target, detail.id)}
+          on:click={() => setClassTarget(detail.id)}
         >
-          {$carClass === detail.id
+          {isClassTarget($target, detail.id)
             ? "✓ This is your target"
             : `Hunt for a ${detail.label}`}
         </button>

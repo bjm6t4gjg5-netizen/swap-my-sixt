@@ -1,14 +1,15 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import ProbabilityBadge from "./ProbabilityBadge.svelte";
-  import type { ScoredStation, CarClassId } from "../lib/types";
+  import type { ScoredStation } from "../lib/types";
   import { verdictLabel } from "../lib/heuristic";
   import { CAR_CLASS_BY_ID, modelsInClass } from "../lib/cars";
   import { COUNTRY_NAMES } from "../lib/stations";
   import { formatKm } from "../lib/geo";
+  import { targetClassId, type Target } from "../lib/store";
 
   export let station: ScoredStation;
-  export let classId: CarClassId;
+  export let target: Target;
   export let showRouteVia = false;
   /** "route" shows detour stats; "browse" shows straight-line distance. */
   export let mode: "route" | "browse" = "route";
@@ -20,20 +21,27 @@
     planRoute: ScoredStation;
   }>();
 
-  $: cls = CAR_CLASS_BY_ID[classId];
+  $: classId = targetClassId(target);
+  $: className = classId ? CAR_CLASS_BY_ID[classId].label : "";
   $: pct = Math.round(station.score * 100);
-  $: models = modelsInClass(classId);
+  $: models = classId ? modelsInClass(classId) : [];
+  $: wanted =
+    target.kind === "any"
+      ? "a car"
+      : target.kind === "model"
+        ? `a ${target.brand} ${target.model}`
+        : `a ${CAR_CLASS_BY_ID[target.classId].label}`;
 
   function verdictText(): string {
     const detour =
       mode === "route" ? ` the ${station.detourMin}-minute detour` : " a detour";
     if (station.score >= 0.65) {
-      return `Strong odds of a ${cls.label} here — a large fleet and a fast-turnover branch. Worth${detour}.`;
+      return `Strong odds of ${wanted} here — a large fleet and a fast-turnover branch. Worth${detour}.`;
     }
     if (station.score >= 0.35) {
-      return `This branch may not keep a ${cls.label} on hand. Phone ahead before committing to${detour}.`;
+      return `This branch may not keep ${wanted} on hand. Phone ahead before committing to${detour}.`;
     }
-    return `A small or off-hours branch — a ${cls.label} is unlikely to be sitting ready. Skip unless you have called and confirmed.`;
+    return `A small or off-hours branch — ${wanted} is unlikely to be sitting ready. Skip unless you have called and confirmed.`;
   }
 
   function openInMaps() {
@@ -42,6 +50,17 @@
       ? `https://maps.apple.com/?daddr=${station.lat},${station.lng}&q=${encodeURIComponent(station.name)}`
       : `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
     window.open(url, "_blank", "noopener");
+  }
+
+  function findPhone() {
+    // Sixt has no public branch-number dataset and routes many branches
+    // through a central line. A Maps lookup surfaces the current number.
+    const q = encodeURIComponent(`${station.name} ${station.addr}`);
+    window.open(
+      `https://www.google.com/maps/search/?api=1&query=${q}`,
+      "_blank",
+      "noopener"
+    );
   }
 </script>
 
@@ -56,7 +75,7 @@
   </div>
 
   <div class="verdict-tag {station.score >= 0.65 ? 'ok' : station.score >= 0.35 ? 'mid' : 'no'}">
-    {verdictLabel(station.score)} · ~{pct}% chance of a {cls.label}
+    {verdictLabel(station.score)} · ~{pct}% chance of {wanted}
   </div>
 
   <div class="stats">
@@ -94,17 +113,33 @@
     <span>📍 {COUNTRY_NAMES[station.country] ?? station.country}</span>
   </div>
 
-  <div class="models">
-    <div class="m-label">{cls.label} cars Sixt may keep here</div>
-    <div class="m-list">
-      {#each models as m}
-        <span class="m-chip">{m.brand} {m.model}</span>
-      {/each}
+  {#if classId}
+    <div class="models">
+      <div class="m-label">{className} cars Sixt may keep here</div>
+      <div class="m-list">
+        {#each models as m}
+          <span
+            class="m-chip"
+            class:hi={target.kind === "model" &&
+              m.brand === target.brand &&
+              m.model === target.model}
+          >{m.brand} {m.model}</span>
+        {/each}
+      </div>
     </div>
-  </div>
+  {/if}
 
   <div class="actions">
-    <button class="btn ghost" on:click={openInMaps}>Open in Maps</button>
+    <button class="btn ghost" on:click={findPhone}>
+      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+        <path
+          d="M6.6 10.8a13 13 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.4c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.3 1z"
+          fill="currentColor"
+        />
+      </svg>
+      Phone
+    </button>
+    <button class="btn ghost" on:click={openInMaps}>Directions</button>
     {#if showRouteVia}
       <button class="btn primary" on:click={() => dispatch("routeVia", station)}>
         Route via here
@@ -116,10 +151,14 @@
       </button>
     {/if}
   </div>
+  <p class="phone-note">
+    Sixt routes most branches through a central line — “Phone” opens Maps with
+    the current listed number.
+  </p>
 </div>
 
 <style>
-  .detail { padding: 14px 16px 16px; }
+  .detail { padding: 14px 16px 14px; }
 
   .head { display: flex; gap: 12px; align-items: flex-start; }
   .title { flex: 1; min-width: 0; }
@@ -206,6 +245,12 @@
     padding: 3px 9px;
     color: var(--text-2);
   }
+  .m-chip.hi {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: white;
+    font-weight: 600;
+  }
 
   .actions { display: flex; gap: 8px; }
   .btn {
@@ -215,8 +260,19 @@
     border: none;
     font-size: 14px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
   }
   .btn.ghost { background: var(--surface-2); color: var(--text); }
-  .btn.primary { background: var(--blue); color: white; flex: 1.4; }
+  .btn.primary { background: var(--blue); color: white; flex: 1.5; }
   .btn:active { transform: scale(0.97); }
+
+  .phone-note {
+    margin: 8px 2px 0;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
 </style>

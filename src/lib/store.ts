@@ -1,5 +1,6 @@
 import { writable, type Writable } from "svelte/store";
 import type { Booking, CarClassId, LatLng } from "./types";
+import { CAR_CLASS_BY_ID } from "./cars";
 
 /** A writable store that mirrors itself into localStorage. */
 function persisted<T>(key: string, initial: T): Writable<T> {
@@ -25,8 +26,38 @@ export type TabId = "navigate" | "booking" | "cars" | "stations";
 
 export const activeTab = writable<TabId>("navigate");
 
-/** Preferred car class — the one you're hunting for. */
-export const carClass = persisted<CarClassId>("sixt.carClass", "premium");
+/* ============================================================
+   Target — what the user is hunting for. Either nothing in
+   particular ("any"), a whole class, or one specific model.
+   ============================================================ */
+export type Target =
+  | { kind: "any" }
+  | { kind: "class"; classId: CarClassId }
+  | { kind: "model"; classId: CarClassId; brand: string; model: string };
+
+export const target = persisted<Target>("sixt.target.v1", {
+  kind: "class",
+  classId: "premium"
+});
+
+/** The class used for scoring — null means "any car" (generic scoring). */
+export function targetClassId(t: Target): CarClassId | null {
+  return t.kind === "any" ? null : t.classId;
+}
+
+/** Headline label, e.g. "Any car", "Premium", "BMW M3". */
+export function targetLabel(t: Target): string {
+  if (t.kind === "any") return "Any car";
+  if (t.kind === "model") return `${t.brand} ${t.model}`;
+  return CAR_CLASS_BY_ID[t.classId].label;
+}
+
+/** Secondary label under the headline. */
+export function targetSubLabel(t: Target): string {
+  if (t.kind === "any") return "Scoring by overall fleet";
+  if (t.kind === "model") return `${CAR_CLASS_BY_ID[t.classId].label} class`;
+  return "Vehicle class";
+}
 
 /** The user's current Sixt booking, entered manually. */
 export const booking = persisted<Booking | null>("sixt.booking", null);
@@ -65,12 +96,12 @@ export interface NamedPoint {
 export interface NavRequest {
   origin?: NamedPoint;
   dest?: NamedPoint;
-  carClass?: CarClassId;
+  target?: Target;
 }
 export const navRequest = writable<NavRequest | null>(null);
 
 export function requestNavigation(req: NavRequest): void {
-  if (req.carClass) carClass.set(req.carClass);
+  if (req.target) target.set(req.target);
   navRequest.set(req);
   activeTab.set("navigate");
 }

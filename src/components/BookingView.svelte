@@ -139,14 +139,14 @@
     requestNavigation({
       origin: originPoint(),
       dest: { lat: s.lat, lng: s.lng, label: s.name },
-      carClass: current.expectedClassId
+      target: { kind: "class", classId: current.expectedClassId }
     });
   }
   function planSwapOpen() {
     if (!current) return;
     requestNavigation({
       origin: originPoint(),
-      carClass: current.expectedClassId
+      target: { kind: "class", classId: current.expectedClassId }
     });
   }
 </script>

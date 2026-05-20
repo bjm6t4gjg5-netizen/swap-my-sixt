@@ -3,7 +3,7 @@
   import L from "leaflet";
   import RoutePanel from "./RoutePanel.svelte";
   import BottomSheet from "./BottomSheet.svelte";
-  import ClassPicker from "./ClassPicker.svelte";
+  import TargetBar from "./TargetBar.svelte";
   import StationListItem from "./StationListItem.svelte";
   import StationDetail from "./StationDetail.svelte";
   import { STATIONS } from "../lib/stations";
@@ -12,7 +12,8 @@
   import { formatKm, formatDuration } from "../lib/geo";
   import type { Route, ScoredStation } from "../lib/types";
   import {
-    carClass,
+    target,
+    targetClassId,
     myLocation,
     navRequest,
     addRecent,
@@ -50,9 +51,9 @@
       ? scored.reduce((a, b) => (b.score > a.score ? b : a)).id
       : null;
 
-  // Re-score when the car class changes
-  $: if (route && $carClass) {
-    scored = stationsAlongRoute(route, STATIONS, $carClass);
+  // Re-score when the target changes
+  $: if (route && $target) {
+    scored = stationsAlongRoute(route, STATIONS, targetClassId($target));
     drawStations();
   }
 
@@ -205,7 +206,7 @@
     selected = null;
     try {
       route = await fetchRoute([origin, dest]);
-      scored = stationsAlongRoute(route, STATIONS, $carClass);
+      scored = stationsAlongRoute(route, STATIONS, targetClassId($target));
       drawRoute();
       drawStations();
       fitToRoute();
@@ -227,7 +228,7 @@
         { lat: station.lat, lng: station.lng, label: station.name },
         dest
       ]);
-      scored = stationsAlongRoute(route, STATIONS, $carClass);
+      scored = stationsAlongRoute(route, STATIONS, targetClassId($target));
       drawRoute();
       drawStations();
       fitToRoute();
@@ -422,7 +423,7 @@
     <div class="detail-card">
       <StationDetail
         station={selected}
-        classId={$carClass}
+        target={$target}
         showRouteVia={!!route}
         on:close={() => (selected = null)}
         on:routeVia={(e) => routeVia(e.detail)}
@@ -454,7 +455,9 @@
         {/if}
       </div>
 
-      <ClassPicker label="Hunting for" />
+      <div class="targetwrap">
+        <TargetBar />
+      </div>
 
       <div class="list">
         {#if !route}
@@ -590,6 +593,7 @@
   }
   .go:active { transform: scale(0.96); }
 
+  .targetwrap { padding: 2px 14px 12px; }
   .list { padding-bottom: 20px; border-top: 1px solid var(--line-soft); }
 
   .empty { padding: 26px 22px; text-align: center; }

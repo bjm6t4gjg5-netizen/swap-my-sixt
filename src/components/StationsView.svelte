@@ -4,10 +4,15 @@
   import { STATIONS, COUNTRY_NAMES } from "../lib/stations";
   import { computeScore, verdict } from "../lib/heuristic";
   import { haversineKm } from "../lib/geo";
-  import { carClass, myLocation, requestNavigation } from "../lib/store";
-  import { CAR_CLASS_BY_ID } from "../lib/cars";
+  import {
+    target,
+    targetClassId,
+    targetLabel,
+    myLocation,
+    requestNavigation
+  } from "../lib/store";
   import type { ScoredStation } from "../lib/types";
-  import ClassPicker from "./ClassPicker.svelte";
+  import TargetBar from "./TargetBar.svelte";
   import ProbabilityBadge from "./ProbabilityBadge.svelte";
   import StationDetail from "./StationDetail.svelte";
 
@@ -40,7 +45,7 @@
       fromRouteKm: dist,
       distFromStartKm: dist,
       detourMin: 0,
-      score: computeScore(s, $carClass)
+      score: computeScore(s, targetClassId($target))
     };
   });
 
@@ -59,7 +64,6 @@
       return b.score - a.score;
     });
 
-  $: targetLabel = CAR_CLASS_BY_ID[$carClass].label;
 
   // --- map lifecycle ---
   async function ensureMap() {
@@ -122,7 +126,7 @@
   function planFromStation(s: ScoredStation) {
     requestNavigation({
       origin: { lat: s.lat, lng: s.lng, label: s.name },
-      carClass: $carClass
+      target: $target
     });
   }
 </script>
@@ -133,11 +137,11 @@
       <h2>Sixt stations</h2>
       <p>
         {STATIONS.length} branches worldwide, scored live for
-        <strong>{targetLabel}</strong>.
+        <strong>{targetLabel($target)}</strong>.
       </p>
     </header>
 
-    <ClassPicker label="" />
+    <div class="targetwrap"><TargetBar /></div>
 
     <div class="row2">
       <div class="searchbar">
@@ -227,7 +231,7 @@
     <div class="modal" role="dialog" aria-modal="true">
       <StationDetail
         station={selected}
-        classId={$carClass}
+        target={$target}
         mode="browse"
         showPlanRoute={true}
         on:close={() => (selected = null)}
@@ -255,6 +259,7 @@
   .vhead p { margin: 0 0 12px; font-size: 13.5px; color: var(--text-2); line-height: 1.5; }
   .vhead strong { color: var(--orange-dark); }
 
+  .targetwrap { padding: 2px 14px 0; }
   .row2 { display: flex; gap: 8px; padding: 8px 14px 0; }
   .searchbar {
     flex: 1;
