@@ -32,12 +32,46 @@ function nearDuplicate(a: Route, b: Route): boolean {
   return Math.abs(a.distance - b.distance) / Math.max(a.distance, 1) < 0.02;
 }
 
+/**
+ * Inserts an extra waypoint into an ordered list at the position that adds the
+ * least extra driving — so a Sixt detour slots in naturally between two stops
+ * rather than always going on the end.
+ */
+export function insertAtBest(waypoints: LatLng[], p: LatLng): LatLng[] {
+  if (waypoints.length <= 2) {
+    return [waypoints[0], p, waypoints[waypoints.length - 1]];
+  }
+  let bestI = 1;
+  let bestCost = Infinity;
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    const cost =
+      haversineKm(waypoints[i], p) +
+      haversineKm(p, waypoints[i + 1]) -
+      haversineKm(waypoints[i], waypoints[i + 1]);
+    if (cost < bestCost) {
+      bestCost = cost;
+      bestI = i + 1;
+    }
+  }
+  const out = [...waypoints];
+  out.splice(bestI, 0, p);
+  return out;
+}
+
+/**
+ * Builds route options A / B / C through an ordered list of waypoints
+ * (origin, any custom stops, destination). A is the route as given; B and C
+ * are Sixt-aware detours that slot an extra station-dense anchor into it.
+ */
 export async function buildRouteOptions(
-  origin: LatLng,
-  dest: LatLng,
+  waypoints: LatLng[],
   classId: CarClassId | null
 ): Promise<RouteOption[]> {
-  const base = await fetchRoutes([origin, dest]);
+  if (waypoints.length < 2) {
+    throw new Error("Need at least a start and a destination.");
+  }
+  const multiStop = waypoints.length > 2;
+  const base = await fetchRoutes(waypoints);
   const routeA = base[0];
   const aCoords = routeA.coordinates;
 
@@ -46,7 +80,7 @@ export async function buildRouteOptions(
       key: "A",
       route: routeA,
       stationCount: stationsAlongRoute(routeA, STATIONS, classId).length,
-      note: "Fastest route"
+      note: multiStop ? "Your route" : "Fastest route"
     }
   ];
 
@@ -73,10 +107,11 @@ export async function buildRouteOptions(
     anchors.push({ s: c.s });
   }
 
-  // Fetch the detour routes in parallel.
+  // Fetch the detour routes in parallel — the anchor slots into the existing
+  // waypoint sequence wherever it adds the least extra driving.
   const detours = await Promise.all(
     anchors.map((a) =>
-      fetchRoutes([origin, { lat: a.s.lat, lng: a.s.lng }, dest])
+      fetchRoutes(insertAtBest(waypoints, { lat: a.s.lat, lng: a.s.lng }))
         .then((r) => ({ route: r[0], anchor: a.s }))
         .catch(() => null)
     )

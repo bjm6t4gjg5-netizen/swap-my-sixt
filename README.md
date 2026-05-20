@@ -1,4 +1,4 @@
-# Swap my Sixt — v3.8
+# Swap my Sixt — v3.9
 
 A navigation web app that helps you swap a Sixt rental into the car you
 actually want. Plan a route, see every Sixt station along it, and get a live
@@ -15,7 +15,9 @@ PWA.
 destination (type an address or tap "Current location"), the app finds the
 fastest route via OSRM and overlays every Sixt station in the corridor,
 colour-coded by how likely it has your car. Tap a station to re-route through
-it. "GO" starts live location tracking.
+it. "Add a stop" lets you build a **multi-stop road trip** — up to four
+intermediate stops, each a numbered pin on the map — and every Sixt station
+along the whole chain is still scored.
 
 **Target picker** — one shared control across the app for *what you're hunting
 for*. Pick a whole class, search for a **specific car** (e.g. "BMW M3"), or
@@ -36,7 +38,10 @@ A 131-strong variant database means each car carries real specs — horsepower,
 top speed, 0–100, drivetrain, fuel, consumption — and the tool spells out the
 concrete difference vs your booked car ("+88 hp, AWD vs RWD"). It factors in
 your Sixt loyalty status, flags what counts as a good deal, and tells you
-whether to accept, hold out, or point at a specific better car.
+whether to accept, hold out, or point at a specific better car. Set the branch
+and it also suggests **specific cars worth asking for** — realistic upgrades
+within reach of that branch type and your status, filterable by brand, so you
+can hand the agent a concrete name instead of a vague "something nicer".
 
 **Ask the analyst — offline too.** Lucas now works with **no API key** out of
 the box: a witty rule-based mode covering swaps, negotiation, ACRISS codes and

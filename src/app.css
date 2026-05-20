@@ -101,6 +101,11 @@ input, select { font-family: inherit; }
 }
 .endpoint-pin.a { background: #1c1c1e; }
 .endpoint-pin.b { background: var(--red); }
+.endpoint-pin.stop {
+  width: 22px; height: 22px;
+  font-size: 11px;
+  background: var(--orange);
+}
 .leaflet-div-icon { background: transparent; border: none; }
 
 /* ---- Print isolation: only the strategy one-pager prints ---- */

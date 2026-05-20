@@ -10,7 +10,11 @@
   import MapsMenu from "./MapsMenu.svelte";
   import { STATIONS } from "../lib/stations";
   import { fetchRoutes } from "../lib/routing";
-  import { buildRouteOptions, type RouteOption } from "../lib/routePlanner";
+  import {
+    buildRouteOptions,
+    insertAtBest,
+    type RouteOption
+  } from "../lib/routePlanner";
   import { stationsAlongRoute, verdict } from "../lib/heuristic";
   import { formatKm, formatDuration, haversineKm } from "../lib/geo";
   import type { Route, ScoredStation } from "../lib/types";
@@ -31,6 +35,16 @@
 
   let origin: NamedPoint | null = null;
   let dest: NamedPoint | null = null;
+  /** Custom intermediate stops for road trips — empty rows allowed while editing. */
+  let stops: { id: string; point: NamedPoint | null }[] = [];
+  let stopSeq = 0;
+  const MAX_STOPS = 4;
+  /** The current filled-in stops, in order. */
+  function filledStops(): NamedPoint[] {
+    return stops
+      .map((s) => s.point)
+      .filter((p): p is NamedPoint => p != null);
+  }
   /** Route options A / B / C — A is fastest, B/C are Sixt-aware detours. */
   let routeOptions: RouteOption[] = [];
   let selectedRouteIndex = 0;
@@ -53,6 +67,7 @@
   let stationLayer: L.LayerGroup | null = null;
   let originMarker: L.Marker | null = null;
   let destMarker: L.Marker | null = null;
+  let stopMarkers: L.Marker[] = [];
   let meMarker: L.Marker | null = null;
 
   $: bestId =
@@ -187,15 +202,27 @@
   }
 
   /* ---------- route building ---------- */
-  function setPoint(field: "origin" | "dest", point: NamedPoint) {
+  function setPoint(field: string, point: NamedPoint) {
     if (field === "origin") origin = point;
-    else dest = point;
+    else if (field === "dest") dest = point;
+    else stops = stops.map((s) => (s.id === field ? { ...s, point } : s));
     drawEndpoints();
     if (origin && dest) planRoute();
-    else {
-      const p = field === "origin" ? origin! : dest!;
-      map.setView([p.lat, p.lng], 13);
-    }
+    else map.setView([point.lat, point.lng], 13);
+  }
+
+  /** Add an empty stop row for the user to fill in. */
+  function addStop() {
+    if (stops.length >= MAX_STOPS) return;
+    stops = [...stops, { id: `stop-${stopSeq++}`, point: null }];
+  }
+
+  /** Remove a stop entirely and re-plan if it was on the route. */
+  function removeStop(id: string) {
+    const wasFilled = stops.find((s) => s.id === id)?.point != null;
+    stops = stops.filter((s) => s.id !== id);
+    drawEndpoints();
+    if (wasFilled && origin && dest) planRoute();
   }
 
   function applyNavRequest(req: {
@@ -204,6 +231,8 @@
   }) {
     if (req.origin) origin = req.origin;
     if (req.dest) dest = req.dest;
+    // a handed-over swap route is a direct A→B trip
+    stops = [];
     drawEndpoints();
     if (origin && dest) planRoute();
   }
@@ -215,8 +244,7 @@
     viaStation = null;
     try {
       routeOptions = await buildRouteOptions(
-        origin,
-        dest,
+        [origin, ...filledStops(), dest],
         targetClassId($target)
       );
       selectedRouteIndex = 0;
@@ -238,11 +266,12 @@
     loading = `Re-routing via ${station.name}…`;
     try {
       const r = (
-        await fetchRoutes([
-          origin,
-          { lat: station.lat, lng: station.lng },
-          dest
-        ])
+        await fetchRoutes(
+          insertAtBest(
+            [origin, ...filledStops(), dest],
+            { lat: station.lat, lng: station.lng }
+          )
+        )
       )[0];
       routeOptions = [
         {
@@ -308,11 +337,20 @@
   function swapEnds() {
     if (!origin || !dest) return;
     [origin, dest] = [dest, origin];
+    // a true reverse also flips the order of any intermediate stops
+    stops = [...stops].reverse();
     drawEndpoints();
     planRoute();
   }
 
-  function clearField(field: "origin" | "dest") {
+  function clearField(field: string) {
+    if (field !== "origin" && field !== "dest") {
+      // clearing a stop just drops it from the route
+      stops = stops.map((s) => (s.id === field ? { ...s, point: null } : s));
+      drawEndpoints();
+      if (origin && dest) planRoute();
+      return;
+    }
     if (field === "origin") origin = null;
     else dest = null;
     routeOptions = [];
@@ -415,6 +453,18 @@
       destMarker?.remove();
       destMarker = null;
     }
+    // intermediate stop markers, numbered in order
+    stopMarkers.forEach((m) => m.remove());
+    stopMarkers = filledStops().map((sp, i) =>
+      L.marker([sp.lat, sp.lng], {
+        icon: L.divIcon({
+          className: "",
+          html: `<div class="endpoint-pin stop">${i + 1}</div>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11]
+        })
+      }).addTo(map)
+    );
   }
 
   function drawMe(here: { lat: number; lng: number }) {
@@ -466,13 +516,17 @@
     <RoutePanel
       {origin}
       {dest}
+      {stops}
+      maxStops={MAX_STOPS}
       myLocation={$myLocation}
       recents={$recents}
-      busy={loading.startsWith("Calculating") || loading.startsWith("Re-routing")}
+      busy={loading.startsWith("Finding") || loading.startsWith("Re-routing")}
       on:pick={(e) => setPoint(e.detail.field, e.detail.point)}
       on:locate={() => locateMe(true)}
       on:swap={swapEnds}
       on:clear={(e) => clearField(e.detail.field)}
+      on:addStop={addStop}
+      on:removeStop={(e) => removeStop(e.detail.id)}
     />
   </div>
 
@@ -510,6 +564,9 @@
             <div class="s-meta">
               {formatKm(route.distance)} · {formatDuration(route.duration)} ·
               {scored.length} swap {scored.length === 1 ? "option" : "options"}
+              {#if filledStops().length}
+                · {filledStops().length} {filledStops().length === 1 ? "stop" : "stops"}
+              {/if}
             </div>
           {:else}
             <div class="s-route">Plan a swap route</div>

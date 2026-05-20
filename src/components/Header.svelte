@@ -63,7 +63,13 @@
     background: transparent;
     border: none;
     padding: 0;
+    margin: 0;
     cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    font: inherit;
+    color: #fff;
+    -webkit-tap-highlight-color: transparent;
   }
   .brand:active { transform: scale(0.96); }
   .logo {

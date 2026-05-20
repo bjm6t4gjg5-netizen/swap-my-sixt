@@ -2,6 +2,7 @@
   import { STATION_BY_ID, STATIONS } from "../lib/stations";
   import { CAR_CLASSES, CAR_CLASS_BY_ID, searchCars } from "../lib/cars";
   import {
+    CAR_VARIANTS,
     VARIANT_BY_ID,
     searchVariants,
     variantLabel,
@@ -309,6 +310,78 @@
       `${statusLeverage(sixtStatus)} Realistically aim about ${statusBump} tier${statusBump > 1 ? "s" : ""} up.`
     : "";
 
+  /* ---------- car recommendations (what to ask for) ---------- */
+  // How many tiers above the booking the branch realistically supports.
+  $: branchReach = (() => {
+    const st = negStation;
+    if (!st) return 2;
+    if (st.type === "airport" || st.fleet === "XL") return 3;
+    if (st.fleet === "L" || st.type === "train") return 2;
+    return 1;
+  })();
+  // Total realistic reach = branch room + loyalty-status room (capped).
+  $: reachTiers = Math.min(5, branchReach + (statusBump - 1));
+
+  // Variant ids already logged as offered/spotted — don't re-recommend them.
+  $: usedVariantIds = new Set(
+    [...neg.offered, ...neg.spotted].map((c) => c.variantId).filter(Boolean)
+  );
+
+  // Every variant that is a genuine upgrade and within reach at this branch.
+  $: recoPool = ((): CarVariant[] => {
+    if (!expectedClass) return [];
+    const lo = bookedTier + 1;
+    const hi = bookedTier + reachTiers;
+    return CAR_VARIANTS.filter((v) => {
+      if (usedVariantIds.has(v.id)) return false;
+      const t = CAR_CLASS_BY_ID[v.classId].tier;
+      return t >= lo && t <= hi;
+    });
+  })();
+
+  // Brands available to filter by (only those with something to recommend).
+  $: recoBrands = Array.from(new Set(recoPool.map((v) => v.brand))).sort();
+  let recoBrand = "All";
+  // If the chosen brand stops having recommendations, fall back to "All".
+  $: if (recoBrand !== "All" && !recoBrands.includes(recoBrand)) recoBrand = "All";
+
+  // Final list: one variant per family, easiest upgrade first, max 6.
+  $: recommendations = ((): CarVariant[] => {
+    const pool =
+      recoBrand === "All"
+        ? recoPool
+        : recoPool.filter((v) => v.brand === recoBrand);
+    const byFamily = new Map<string, CarVariant>();
+    for (const v of pool) {
+      const key = `${v.brand} ${v.family}`;
+      const cur = byFamily.get(key);
+      if (!cur || v.hp > cur.hp) byFamily.set(key, v);
+    }
+    return Array.from(byFamily.values())
+      .sort((a, b) => {
+        const dt =
+          CAR_CLASS_BY_ID[a.classId].tier - CAR_CLASS_BY_ID[b.classId].tier;
+        return dt !== 0 ? dt : b.hp - a.hp;
+      })
+      .slice(0, 6);
+  })();
+
+  /** A short, concrete reason to ask the agent for this car. */
+  function recoReason(v: CarVariant): string {
+    const cls = CAR_CLASS_BY_ID[v.classId];
+    const d = cls.tier - bookedTier;
+    const step =
+      d <= 1 ? "an easy ask" : d <= 3 ? "a solid step up" : "ambitious — worth a try";
+    const bits = [cls.label, step];
+    if (bookedVariant) {
+      const hpD = v.hp - bookedVariant.hp;
+      if (hpD >= 30) bits.push(`+${hpD} hp`);
+      if (v.drivetrain === "AWD" && bookedVariant.drivetrain !== "AWD")
+        bits.push("AWD grip");
+    }
+    return bits.join(" · ");
+  }
+
   type NegTone = "good" | "warn" | "bad" | "info";
   $: negVerdict = ((): { tone: NegTone; text: string } => {
     if (!current || !expectedClass) return { tone: "info", text: "" };
@@ -577,6 +650,60 @@
           </div>
         {/if}
       </div>
+
+      {#if negStation}
+        <div class="reco">
+          <div class="reco-head">
+            <span class="reco-title">Cars worth asking for</span>
+            <span class="reco-sub">
+              Realistic upgrades at {negStation.name.replace("SIXT ", "")} —
+              hand the agent a specific name. Tap one you spot on the lot to log it.
+            </span>
+          </div>
+
+          {#if recoBrands.length > 1}
+            <div class="reco-brands">
+              <button
+                class="rb"
+                class:on={recoBrand === "All"}
+                on:click={() => (recoBrand = "All")}
+              >All brands</button>
+              {#each recoBrands as b}
+                <button
+                  class="rb"
+                  class:on={recoBrand === b}
+                  on:click={() => (recoBrand = b)}
+                >{b}</button>
+              {/each}
+            </div>
+          {/if}
+
+          {#if recommendations.length}
+            <div class="reco-list">
+              {#each recommendations as v (v.id)}
+                {@const d = CAR_CLASS_BY_ID[v.classId].tier - bookedTier}
+                <button class="reco-card" on:click={() => addNegCar("spotted", v)}>
+                  <div class="reco-art">
+                    <CarArt classId={v.classId} body={v.body} brand={v.brand} compact />
+                  </div>
+                  <div class="reco-info">
+                    <div class="reco-name">{v.brand} {v.family} {v.trim}</div>
+                    <div class="reco-specs">{v.hp} hp · {v.drivetrain} · {v.fuel}</div>
+                    <div class="reco-why">{recoReason(v)}</div>
+                  </div>
+                  <span class="delta up reco-delta">▲ +{d}</span>
+                </button>
+              {/each}
+            </div>
+          {:else}
+            <div class="reco-empty">
+              {recoBrand === "All"
+                ? "Your booked class is already near the top — focus on getting at least what you booked."
+                : `No ${recoBrand} upgrades within reach at this branch — try another brand.`}
+            </div>
+          {/if}
+        </div>
+      {/if}
 
       <div class="neg-grid">
         <div class="neg-col">
@@ -1193,6 +1320,64 @@
     color: #1f8a3b;
     margin-right: 5px;
   }
+
+  /* ---------- recommendations ---------- */
+  .reco {
+    background: var(--surface-2);
+    border-radius: 14px;
+    padding: 12px;
+    margin-bottom: 13px;
+  }
+  .reco-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+  .reco-title { font-size: 14px; font-weight: 800; }
+  .reco-sub { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+  .reco-brands {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .rb {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--text-2);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 100px;
+  }
+  .rb.on {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: white;
+  }
+  .rb:active { transform: scale(0.95); }
+  .reco-list { display: flex; flex-direction: column; gap: 7px; }
+  .reco-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    border-radius: 11px;
+    padding: 8px 10px;
+  }
+  .reco-card:active { transform: scale(0.99); background: var(--surface-2); }
+  .reco-art { width: 60px; flex-shrink: 0; }
+  .reco-info { flex: 1; min-width: 0; }
+  .reco-name { font-size: 13.5px; font-weight: 700; }
+  .reco-specs { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+  .reco-why { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .reco-delta { flex-shrink: 0; align-self: center; }
+  .reco-empty {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+    padding: 4px 2px;
+  }
+
   .neg-grid {
     display: grid;
     grid-template-columns: 1fr;

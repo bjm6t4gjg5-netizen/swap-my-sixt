@@ -23,14 +23,24 @@ export const STARTER_QUESTIONS = [
   "Tell me a joke"
 ];
 
+// Remembers the last index served from each pool, so Lucas never tells the
+// same joke (or repeats the same line) twice in a row.
+const lastPick = new Map<readonly string[], number>();
 function pick(arr: string[]): string {
-  return arr[Math.floor(Math.random() * arr.length)];
+  if (arr.length <= 1) return arr[0] ?? "";
+  let i = Math.floor(Math.random() * arr.length);
+  if (lastPick.get(arr) === i) i = (i + 1) % arr.length;
+  lastPick.set(arr, i);
+  return arr[i];
 }
 
 const GREETINGS = [
   "Moin. Lucas here, your rental analyst. What are we working on — a swap, the counter negotiation, or that code on your booking?",
   "Hello! Lucas speaking. Ask me about car classes, the negotiation game, or how to read an ACRISS code.",
-  "Servus. I'm Lucas. You booked one car and want a better one — that is precisely my job. Where shall we start?"
+  "Servus. I'm Lucas. You booked one car and want a better one — that is precisely my job. Where shall we start?",
+  "Moin moin. Lucas, rental analyst, dry humour included at no extra charge. Swap, negotiation, or a joke to warm up?",
+  "Hallo. Lucas here. I read bookings, rank Sixt branches, and coach the counter conversation. Point me at a problem.",
+  "Grüß dich. Lucas at your service. The car you booked is rarely the best car on the lot — let's go find the better one."
 ];
 
 const SPEED = [
@@ -68,34 +78,94 @@ const STATUS = [
 const JOKES_GENERAL = [
   "Why did the rental car go to therapy? Commitment issues — three days here, a week there, never the same driver twice.",
   "I asked a Compact and a Luxury sedan who was faster. The Luxury won. The Compact insisted it was 'about the journey'. It was not about the journey.",
-  "My favourite German road sign is still 'Ausfahrt'. Biggest city in the country — somehow there's an exit for it everywhere."
+  "My favourite German road sign is still 'Ausfahrt'. Biggest city in the country — somehow there's an exit for it everywhere.",
+  "A rental car has three states: freshly cleaned, mysteriously sticky, and 'we'll deal with that at drop-off'.",
+  "I once rented a car so basic the cup holder was a strong suggestion rather than a feature.",
+  "Petrol prices are like the weather forecast: I check them constantly, I complain loudly, and I change nothing.",
+  "The cheapest rental class is called 'Mini' for two reasons. One is the size. The other is your enthusiasm.",
+  "Sat-nav recalculating for the fourth time is just the car's polite way of saying it has also given up.",
+  "A friend asked why I name every rental car. You'd name something too, if it controlled whether you reached the airport.",
+  "The 'check engine' light is the car equivalent of a colleague saying 'we need to talk' and then walking away.",
+  "Parallel parking a rental: 20 seconds of driving, 20 minutes of decision-making, and one quiet apology to the kerb."
 ];
 const JOKES_AUTOBAHN = [
   "On the Autobahn there are two kinds of driver: those who've been flashed by a speed camera, and those who are about to be.",
   "I love the Autobahn. It's the only place a rental Polo briefly believes it's a race car — for about four seconds, until a Passat erases that dream.",
-  "Autobahn etiquette: the left lane is not a hotel. You may not check in."
+  "Autobahn etiquette: the left lane is not a hotel. You may not check in.",
+  "A speed camera is the only photographer who'll send you the picture, the bill, and the disappointment all at once.",
+  "The Autobahn has no general limit, which Germans interpret as a personal challenge and tourists interpret as a near-death experience.",
+  "Roadworks on the Autobahn last one of two durations: a long time, or longer than that.",
+  "My rental's top speed and my courage parted ways at exactly 160 km/h. We've agreed to see other numbers.",
+  "Tailgating on the Autobahn is just someone reading your number plate very, very closely.",
+  "There are three certainties in life: taxes, the sunset, and a brand-new Audi appearing in your mirror the instant you move left.",
+  "The unrestricted Autobahn is wonderful until you remember the rental's fuel gauge also has an opinion about your speed.",
+  "German for 'traffic jam' is 'Stau'. It is a short word for a very long experience."
 ];
 const JOKES_COUNTER = [
   "What's a rental agent's favourite kind of music? Heavy upselling.",
   "I told the Sixt agent I wanted a car with character. He gave me one with 190,000 km and a mysterious smell. Technically, character.",
-  "The rental counter asked if I wanted the insurance, the extra insurance, and the insurance for the extra insurance. I asked if the car came with a car."
+  "The rental counter asked if I wanted the insurance, the extra insurance, and the insurance for the extra insurance. I asked if the car came with a car.",
+  "The agent said the upgrade was 'only a small daily fee'. By day fourteen the small daily fee had bought itself a small daily car.",
+  "'Bring it back full,' said the agent, gesturing at a fuel gauge that had clearly been negotiating its own definition of full.",
+  "Rental counter small talk: 'Any damage?' 'None.' We both knew we were discussing the future, not the past.",
+  "I asked for the car I booked. The agent laughed warmly, the way you laugh at a child explaining their business plan.",
+  "The counter offered me a 'premium experience'. I said I'd settle for a premium car. We compromised: I got the experience.",
+  "A rental agreement is forty pages long. Thirty-nine explain why nothing is their fault. Page forty is where you sign.",
+  "Drop-off inspections move at two speeds: a relaxed glance when the lot is empty, and forensic archaeology when there's a queue.",
+  "'It's basically the same car,' said the agent, handing me keys to something that was, in every measurable way, not the same car."
 ];
 const JOKES_EV = [
   "A diesel, a petrol and an EV walk into a services. The diesel orders a coffee, the petrol orders two — and the EV is still in the car park, charging, asking for patience.",
   "My EV and I have the same morning routine: we both need 40 minutes and a strong connection before we're any use.",
-  "Range anxiety is just your car teaching you mindfulness, one nervous glance at the battery icon at a time."
+  "Range anxiety is just your car teaching you mindfulness, one nervous glance at the battery icon at a time.",
+  "I named my rental EV 'Schrödinger'. Until I open the app, it is both charged and completely flat.",
+  "An EV in winter is an honest friend: it tells you the range, then quietly halves it the moment you turn on the heating.",
+  "Charging etiquette: the fast charger is for charging, not for a leisurely lunch. You may not check in there either.",
+  "The EV promised 400 km of range. It delivered 280, an apology, and a strong recommendation to drive more gently.",
+  "Petrol drivers fear running out of fuel. EV drivers fear running out of fuel, signal, app login, and a working charger — all at once.",
+  "My EV does 0–100 in 3.5 seconds and 80–100% in 45 minutes. It is a sprinter with the patience of a monk."
 ];
 const JOKES_BRAND = [
   "Why does a BMW driver never use the indicator? It would give away the element of surprise.",
   "An Audi, a BMW and a Mercedes argued over who's most premium. The minivan they were blocking quietly drove around all three.",
-  "A Tesla doesn't have a key. It has a phone, an app, an account, a software update, and — occasionally — a strong opinion about it."
+  "A Tesla doesn't have a key. It has a phone, an app, an account, a software update, and — occasionally — a strong opinion about it.",
+  "A Mercedes doesn't overtake you. It informs you, gently and from a great height, that the overtaking has concluded.",
+  "Porsche drivers will tell you the 911's engine is in the back. Porsche drivers will tell you everything about the 911.",
+  "The difference between an Audi and a vampire? One waits for an invitation. The Audi is already in your lane.",
+  "A Golf is the answer to a question nobody asked dramatically — quietly competent, eternally sensible, faintly smug about it.",
+  "BMW finally added indicators to the new model. Owners are reportedly using them as ambient lighting.",
+  "Buy a Range Rover and you get two cars: the one in the brochure, and the one currently visiting the workshop.",
+  "A Tesla owner, a CrossFit fan and a vegan walk into a bar. I know, because each of them mentioned it within ninety seconds.",
+  "The most aerodynamic part of any sports car is the size of the bill when something goes wrong."
+];
+const JOKES_GERMAN = [
+  "Germans don't 'have a quick lunch'. They schedule it, attend it, and review it. The same is true of overtaking.",
+  "TÜV is Germany's way of asking your car, very formally, whether it would like to continue existing.",
+  "In Germany the pedestrian light stays red, the street stays empty, and everyone waits anyway. It is not a rule. It is a personality.",
+  "German efficiency means the trains are precise to the minute — and when they aren't, there is a precise, minute-long announcement about it.",
+  "A German parking space is measured to the centimetre, because somewhere, someone with a tape measure absolutely will check.",
+  "Sunday in Germany is so quiet even the cars seem to whisper. Mowing the lawn is practically a criminal confession.",
+  "Germans queue with the discipline of a military operation and the patience of a saint — right up until the gate opens.",
+  "The German word for a car is 'Auto', short for 'autonomously developing strong opinions about your driving'."
+];
+const JOKES_SWAP = [
+  "Swapping a rental is like dating: the one you booked seemed fine online, but you'd really like to see what else the lot has.",
+  "They booked you a Compact. The universe, the lot, and your loyalty status all gently disagree. Listen to the universe.",
+  "The secret to a free upgrade is confidence, a friendly smile, and an empty parking bay where your booked class should be.",
+  "An upgrade you ask for is a negotiation. An upgrade you didn't ask for is a miracle. Most days, do the negotiating.",
+  "Why settle for the car you booked when there's a nicer one twenty metres away, bored, and depreciating?",
+  "A swap is just telling a rental agent, very politely, that you've read the lot better than they have.",
+  "The best swap is the one where you smile, name a specific car, and let the silence do the heavy lifting.",
+  "Hunting a better car across three Sixt branches isn't indecision — it's a safari, and you've packed a booking code."
 ];
 
 function jokeReply(q: string): string {
-  if (/autobahn|speed|blitz|\bfast\b/.test(q)) return pick(JOKES_AUTOBAHN);
-  if (/counter|agent|desk|upsell|rental/.test(q)) return pick(JOKES_COUNTER);
-  if (/electric|\bev\b|tesla|charg|battery/.test(q)) return pick(JOKES_EV);
-  if (/brand|bmw|audi|mercedes|porsche/.test(q)) return pick(JOKES_BRAND);
+  if (/autobahn|speed|blitz|\bfast\b|camera|police/.test(q)) return pick(JOKES_AUTOBAHN);
+  if (/counter|agent|desk|upsell|rental agent|drop.?off/.test(q)) return pick(JOKES_COUNTER);
+  if (/electric|\bev\b|tesla|charg|battery|range/.test(q)) return pick(JOKES_EV);
+  if (/brand|bmw|audi|mercedes|porsche|\bvw\b|volkswagen|golf/.test(q)) return pick(JOKES_BRAND);
+  if (/german|deutsch|germany|t[üu]v|autobahn culture/.test(q)) return pick(JOKES_GERMAN);
+  if (/swap|upgrade|switch|better car|class/.test(q)) return pick(JOKES_SWAP);
   return pick(JOKES_GENERAL);
 }
 
@@ -202,10 +272,7 @@ export function offlineReply(question: string, ctx: OfflineContext): string {
 
 // ── conversational follow-up suggestions ─────────────────────────
 const FOLLOWUPS: { test: RegExp; items: string[] }[] = [
-  {
-    test: /joke|funny|laugh|haha|another one/i,
-    items: ["Another joke", "Autobahn joke", "Rental-counter joke", "EV joke", "Now something useful"]
-  },
+  // (jokes are handled specially in suggestionsFor — see JOKE_CHIPS)
   {
     test: /blitz|radar|speed|autobahn|police|ticket/i,
     items: ["Best car for the Autobahn?", "Tell me an Autobahn joke", "Diesel or petrol for speed?"]
@@ -240,10 +307,35 @@ const FOLLOWUPS: { test: RegExp; items: string[] }[] = [
   }
 ];
 
+// Joke follow-ups rotate so the chips feel alive after each laugh.
+const JOKE_CHIPS = [
+  "Another joke",
+  "Autobahn joke",
+  "Rental-counter joke",
+  "EV joke",
+  "Brand joke",
+  "German joke",
+  "Swap joke"
+];
+
+/** Pick n distinct random items from a pool. */
+function sample(pool: string[], n: number): string[] {
+  const copy = [...pool];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+}
+
 /** Topic-aware follow-up chips, based on the user's last message. */
 export function suggestionsFor(lastUserText: string): string[] {
   const q = lastUserText.trim().toLowerCase();
   if (!q) return STARTER_QUESTIONS;
+  // Jokes: keep "Another joke" pinned, rotate the rest, always offer an exit.
+  if (/joke|funny|laugh|haha|another one/i.test(q)) {
+    return ["Another joke", ...sample(JOKE_CHIPS.slice(1), 3), "Now something useful"];
+  }
   for (const f of FOLLOWUPS) {
     if (f.test.test(q)) return f.items;
   }
