@@ -1,22 +1,11 @@
-// Curated Sixt station dataset.
-// Fields:
-//   id          – unique slug
-//   name        – branch name
-//   addr        – street address
-//   lat, lng    – coordinates
-//   country     – ISO-3166 alpha-2
-//   type        – 'airport' | 'train' | 'city' | 'suburb' | 'rural'
-//   fleet       – overall fleet size tier: 'XL' | 'L' | 'M' | 'S'
-//   premium     – probability weight for premium/sport cars (0–1)
-//   electric    – probability weight for electric cars (0–1)
-//   hours       – freeform string, '24h' for always open
-//
-// "premium" / "electric" weights feed into the availability heuristic.
-// Numbers are educated guesses (Sixt has no public availability API),
-// shown to the user as PROBABILITIES, not guarantees.
+import type { Station } from "./types";
 
-window.SIXT_STATIONS = [
-  // ===== GERMANY — Airports (XL fleets) =====
+// Curated Sixt station dataset (~150 stations).
+// "premium" / "electric" are 0–1 weights feeding the availability heuristic.
+// Sixt has no public availability API — these are educated estimates.
+
+export const STATIONS: Station[] = [
+  // ===== GERMANY — Airports =====
   { id: "fra-airport", name: "SIXT Frankfurt Airport", addr: "Hugo-Eckener-Ring, 60549 Frankfurt am Main", lat: 50.0379, lng: 8.5622, country: "DE", type: "airport", fleet: "XL", premium: 0.85, electric: 0.7, hours: "Daily 05:00–23:30" },
   { id: "muc-airport", name: "SIXT Munich Airport", addr: "Nordallee 25, 85356 München-Flughafen", lat: 48.3537, lng: 11.7860, country: "DE", type: "airport", fleet: "XL", premium: 0.9, electric: 0.75, hours: "Daily 05:00–24:00" },
   { id: "ber-airport", name: "SIXT Berlin Brandenburg Airport", addr: "Willy-Brandt-Platz, 12529 Schönefeld", lat: 52.3667, lng: 13.5033, country: "DE", type: "airport", fleet: "XL", premium: 0.85, electric: 0.75, hours: "Daily 06:00–23:00" },
@@ -116,7 +105,7 @@ window.SIXT_STATIONS = [
   { id: "passau", name: "SIXT Passau", addr: "Spitalhofstr. 81, 94032 Passau", lat: 48.5810, lng: 13.4400, country: "DE", type: "city", fleet: "S", premium: 0.35, electric: 0.3, hours: "Mon–Fri 08:00–17:00" },
   { id: "garmisch", name: "SIXT Garmisch-Partenkirchen", addr: "Bahnhofstr. 51, 82467 Garmisch-Partenkirchen", lat: 47.4920, lng: 11.0980, country: "DE", type: "rural", fleet: "S", premium: 0.4, electric: 0.35, hours: "Mon–Fri 08:00–17:00" },
   { id: "rosenheim", name: "SIXT Rosenheim", addr: "Innstr. 80, 83022 Rosenheim", lat: 47.8580, lng: 12.1280, country: "DE", type: "city", fleet: "S", premium: 0.4, electric: 0.35, hours: "Mon–Fri 08:00–17:00" },
-  { id: "freiburg-fl", name: "SIXT Lörrach", addr: "Wiesentalstr. 35, 79539 Lörrach", lat: 47.6160, lng: 7.6740, country: "DE", type: "city", fleet: "S", premium: 0.35, electric: 0.35, hours: "Mon–Fri 08:00–17:00" },
+  { id: "loerrach", name: "SIXT Lörrach", addr: "Wiesentalstr. 35, 79539 Lörrach", lat: 47.6160, lng: 7.6740, country: "DE", type: "city", fleet: "S", premium: 0.35, electric: 0.35, hours: "Mon–Fri 08:00–17:00" },
   { id: "konstanz", name: "SIXT Konstanz", addr: "Reichenaustr. 31, 78467 Konstanz", lat: 47.6750, lng: 9.1670, country: "DE", type: "city", fleet: "S", premium: 0.4, electric: 0.35, hours: "Mon–Fri 08:00–17:00" },
   { id: "siegen", name: "SIXT Siegen", addr: "Eiserfelder Str. 320, 57080 Siegen", lat: 50.8540, lng: 8.0410, country: "DE", type: "city", fleet: "S", premium: 0.35, electric: 0.3, hours: "Mon–Fri 08:00–17:00" },
   { id: "paderborn", name: "SIXT Paderborn", addr: "Frankfurter Weg 86, 33106 Paderborn", lat: 51.7080, lng: 8.7150, country: "DE", type: "city", fleet: "S", premium: 0.35, electric: 0.3, hours: "Mon–Fri 08:00–17:00" },
@@ -134,59 +123,59 @@ window.SIXT_STATIONS = [
   // ===== SWITZERLAND =====
   { id: "zurich-airport", name: "SIXT Zürich Airport", addr: "8058 Zürich-Flughafen", lat: 47.4515, lng: 8.5644, country: "CH", type: "airport", fleet: "XL", premium: 0.85, electric: 0.75, hours: "Daily 06:00–23:00" },
   { id: "geneva-airport", name: "SIXT Geneva Airport", addr: "Route de Pré-Bois 20, 1215 Genève", lat: 46.2380, lng: 6.1090, country: "CH", type: "airport", fleet: "XL", premium: 0.85, electric: 0.75, hours: "Daily 06:00–23:00" },
-  { id: "basel-airport", name: "SIXT Basel Airport (EuroAirport)", addr: "EuroAirport, 4030 Basel", lat: 47.5896, lng: 7.5299, country: "CH", type: "airport", fleet: "L", premium: 0.7, electric: 0.65, hours: "Daily 06:00–23:00" },
+  { id: "basel-airport", name: "SIXT Basel EuroAirport", addr: "EuroAirport, 4030 Basel", lat: 47.5896, lng: 7.5299, country: "CH", type: "airport", fleet: "L", premium: 0.7, electric: 0.65, hours: "Daily 06:00–23:00" },
   { id: "zurich-city", name: "SIXT Zürich City", addr: "Lagerstr. 33, 8004 Zürich", lat: 47.3760, lng: 8.5320, country: "CH", type: "city", fleet: "L", premium: 0.75, electric: 0.7, hours: "Mon–Sat 07:00–19:00" },
 
   // ===== FRANCE =====
   { id: "paris-cdg", name: "SIXT Paris Charles de Gaulle", addr: "95711 Roissy-en-France", lat: 49.0097, lng: 2.5479, country: "FR", type: "airport", fleet: "XL", premium: 0.85, electric: 0.7, hours: "Daily 07:00–23:00" },
   { id: "paris-orly", name: "SIXT Paris Orly", addr: "94390 Orly", lat: 48.7250, lng: 2.3650, country: "FR", type: "airport", fleet: "L", premium: 0.75, electric: 0.65, hours: "Daily 07:00–23:00" },
   { id: "paris-gare-de-lyon", name: "SIXT Paris Gare de Lyon", addr: "193 Rue de Bercy, 75012 Paris", lat: 48.8440, lng: 2.3760, country: "FR", type: "train", fleet: "L", premium: 0.7, electric: 0.65, hours: "Daily 07:00–22:00" },
-  { id: "lyon-airport", name: "SIXT Lyon Saint-Exupéry Airport", addr: "69125 Colombier-Saugnieu", lat: 45.7256, lng: 5.0811, country: "FR", type: "airport", fleet: "L", premium: 0.7, electric: 0.6, hours: "Daily 06:00–23:00" },
-  { id: "marseille-airport", name: "SIXT Marseille Provence Airport", addr: "13700 Marignane", lat: 43.4393, lng: 5.2214, country: "FR", type: "airport", fleet: "L", premium: 0.7, electric: 0.6, hours: "Daily 06:00–23:00" },
-  { id: "nice-airport", name: "SIXT Nice Côte d'Azur Airport", addr: "06281 Nice", lat: 43.6584, lng: 7.2159, country: "FR", type: "airport", fleet: "L", premium: 0.85, electric: 0.7, hours: "Daily 06:00–23:00" },
-  { id: "toulouse-airport", name: "SIXT Toulouse Blagnac Airport", addr: "31700 Blagnac", lat: 43.6293, lng: 1.3638, country: "FR", type: "airport", fleet: "M", premium: 0.6, electric: 0.55, hours: "Daily 06:00–23:00" },
+  { id: "lyon-airport", name: "SIXT Lyon Saint-Exupéry", addr: "69125 Colombier-Saugnieu", lat: 45.7256, lng: 5.0811, country: "FR", type: "airport", fleet: "L", premium: 0.7, electric: 0.6, hours: "Daily 06:00–23:00" },
+  { id: "marseille-airport", name: "SIXT Marseille Provence", addr: "13700 Marignane", lat: 43.4393, lng: 5.2214, country: "FR", type: "airport", fleet: "L", premium: 0.7, electric: 0.6, hours: "Daily 06:00–23:00" },
+  { id: "nice-airport", name: "SIXT Nice Côte d'Azur", addr: "06281 Nice", lat: 43.6584, lng: 7.2159, country: "FR", type: "airport", fleet: "L", premium: 0.85, electric: 0.7, hours: "Daily 06:00–23:00" },
+  { id: "toulouse-airport", name: "SIXT Toulouse Blagnac", addr: "31700 Blagnac", lat: 43.6293, lng: 1.3638, country: "FR", type: "airport", fleet: "M", premium: 0.6, electric: 0.55, hours: "Daily 06:00–23:00" },
   { id: "bordeaux-airport", name: "SIXT Bordeaux Airport", addr: "33700 Mérignac", lat: 44.8285, lng: -0.7156, country: "FR", type: "airport", fleet: "M", premium: 0.6, electric: 0.55, hours: "Daily 06:00–22:00" },
   { id: "strasbourg", name: "SIXT Strasbourg", addr: "10 Place de la Gare, 67000 Strasbourg", lat: 48.5860, lng: 7.7340, country: "FR", type: "train", fleet: "M", premium: 0.55, electric: 0.5, hours: "Mon–Sat 07:00–19:00" },
 
   // ===== ITALY =====
-  { id: "rome-fco", name: "SIXT Rome Fiumicino Airport", addr: "Via dell'Aeroporto di Fiumicino, 00054 Fiumicino", lat: 41.7999, lng: 12.2462, country: "IT", type: "airport", fleet: "XL", premium: 0.8, electric: 0.65, hours: "Daily 07:00–23:00" },
-  { id: "rome-cia", name: "SIXT Rome Ciampino Airport", addr: "Via Appia Nuova, 00040 Ciampino", lat: 41.8003, lng: 12.5950, country: "IT", type: "airport", fleet: "L", premium: 0.65, electric: 0.55, hours: "Daily 07:00–23:00" },
-  { id: "milan-mxp", name: "SIXT Milan Malpensa Airport", addr: "21010 Ferno", lat: 45.6306, lng: 8.7281, country: "IT", type: "airport", fleet: "XL", premium: 0.85, electric: 0.7, hours: "Daily 07:00–23:00" },
-  { id: "milan-lin", name: "SIXT Milan Linate Airport", addr: "20090 Segrate", lat: 45.4451, lng: 9.2767, country: "IT", type: "airport", fleet: "L", premium: 0.75, electric: 0.65, hours: "Daily 07:00–23:00" },
+  { id: "rome-fco", name: "SIXT Rome Fiumicino", addr: "Via dell'Aeroporto, 00054 Fiumicino", lat: 41.7999, lng: 12.2462, country: "IT", type: "airport", fleet: "XL", premium: 0.8, electric: 0.65, hours: "Daily 07:00–23:00" },
+  { id: "rome-cia", name: "SIXT Rome Ciampino", addr: "Via Appia Nuova, 00040 Ciampino", lat: 41.8003, lng: 12.5950, country: "IT", type: "airport", fleet: "L", premium: 0.65, electric: 0.55, hours: "Daily 07:00–23:00" },
+  { id: "milan-mxp", name: "SIXT Milan Malpensa", addr: "21010 Ferno", lat: 45.6306, lng: 8.7281, country: "IT", type: "airport", fleet: "XL", premium: 0.85, electric: 0.7, hours: "Daily 07:00–23:00" },
+  { id: "milan-lin", name: "SIXT Milan Linate", addr: "20090 Segrate", lat: 45.4451, lng: 9.2767, country: "IT", type: "airport", fleet: "L", premium: 0.75, electric: 0.65, hours: "Daily 07:00–23:00" },
   { id: "milan-city", name: "SIXT Milan Centrale", addr: "Piazza Duca d'Aosta, 20124 Milano", lat: 45.4860, lng: 9.2050, country: "IT", type: "train", fleet: "L", premium: 0.7, electric: 0.65, hours: "Daily 07:00–22:00" },
-  { id: "venice-airport", name: "SIXT Venice Marco Polo Airport", addr: "30173 Tessera", lat: 45.5054, lng: 12.3519, country: "IT", type: "airport", fleet: "L", premium: 0.7, electric: 0.6, hours: "Daily 07:00–23:00" },
+  { id: "venice-airport", name: "SIXT Venice Marco Polo", addr: "30173 Tessera", lat: 45.5054, lng: 12.3519, country: "IT", type: "airport", fleet: "L", premium: 0.7, electric: 0.6, hours: "Daily 07:00–23:00" },
   { id: "naples-airport", name: "SIXT Naples Airport", addr: "Viale F. Ruffo di Calabria, 80144 Napoli", lat: 40.8860, lng: 14.2908, country: "IT", type: "airport", fleet: "L", premium: 0.65, electric: 0.5, hours: "Daily 07:00–23:00" },
   { id: "florence-airport", name: "SIXT Florence Airport", addr: "Via del Termine, 50127 Firenze", lat: 43.8100, lng: 11.2050, country: "IT", type: "airport", fleet: "M", premium: 0.65, electric: 0.55, hours: "Daily 07:00–22:00" },
   { id: "bologna-airport", name: "SIXT Bologna Airport", addr: "Via Triumvirato, 40132 Bologna", lat: 44.5354, lng: 11.2887, country: "IT", type: "airport", fleet: "M", premium: 0.65, electric: 0.55, hours: "Daily 07:00–23:00" },
 
   // ===== SPAIN =====
-  { id: "madrid-airport", name: "SIXT Madrid Barajas Airport", addr: "28042 Madrid", lat: 40.4983, lng: -3.5676, country: "ES", type: "airport", fleet: "XL", premium: 0.8, electric: 0.65, hours: "Daily 07:00–23:00" },
-  { id: "barcelona-airport", name: "SIXT Barcelona El Prat Airport", addr: "08820 El Prat de Llobregat", lat: 41.2974, lng: 2.0833, country: "ES", type: "airport", fleet: "XL", premium: 0.8, electric: 0.65, hours: "Daily 07:00–23:00" },
-  { id: "palma-airport", name: "SIXT Palma de Mallorca Airport", addr: "07611 Palma", lat: 39.5517, lng: 2.7388, country: "ES", type: "airport", fleet: "XL", premium: 0.75, electric: 0.6, hours: "Daily 07:00–23:00" },
+  { id: "madrid-airport", name: "SIXT Madrid Barajas", addr: "28042 Madrid", lat: 40.4983, lng: -3.5676, country: "ES", type: "airport", fleet: "XL", premium: 0.8, electric: 0.65, hours: "Daily 07:00–23:00" },
+  { id: "barcelona-airport", name: "SIXT Barcelona El Prat", addr: "08820 El Prat de Llobregat", lat: 41.2974, lng: 2.0833, country: "ES", type: "airport", fleet: "XL", premium: 0.8, electric: 0.65, hours: "Daily 07:00–23:00" },
+  { id: "palma-airport", name: "SIXT Palma de Mallorca", addr: "07611 Palma", lat: 39.5517, lng: 2.7388, country: "ES", type: "airport", fleet: "XL", premium: 0.75, electric: 0.6, hours: "Daily 07:00–23:00" },
   { id: "malaga-airport", name: "SIXT Málaga Airport", addr: "29004 Málaga", lat: 36.6749, lng: -4.4991, country: "ES", type: "airport", fleet: "L", premium: 0.7, electric: 0.55, hours: "Daily 07:00–23:00" },
   { id: "alicante-airport", name: "SIXT Alicante Airport", addr: "03195 Alicante", lat: 38.2822, lng: -0.5582, country: "ES", type: "airport", fleet: "L", premium: 0.65, electric: 0.5, hours: "Daily 07:00–23:00" },
   { id: "valencia-airport", name: "SIXT Valencia Airport", addr: "46940 Manises", lat: 39.4893, lng: -0.4816, country: "ES", type: "airport", fleet: "M", premium: 0.6, electric: 0.5, hours: "Daily 07:00–22:00" },
   { id: "seville-airport", name: "SIXT Seville Airport", addr: "41020 Sevilla", lat: 37.4189, lng: -5.8931, country: "ES", type: "airport", fleet: "M", premium: 0.6, electric: 0.5, hours: "Daily 07:00–22:00" },
   { id: "ibiza-airport", name: "SIXT Ibiza Airport", addr: "07817 Sant Josep", lat: 38.8729, lng: 1.3731, country: "ES", type: "airport", fleet: "L", premium: 0.7, electric: 0.55, hours: "Daily 07:00–23:00" },
 
-  // ===== NETHERLANDS / BELGIUM / LUXEMBOURG =====
-  { id: "ams-airport", name: "SIXT Amsterdam Schiphol Airport", addr: "1118 Schiphol", lat: 52.3105, lng: 4.7683, country: "NL", type: "airport", fleet: "XL", premium: 0.85, electric: 0.8, hours: "Daily 06:00–23:00" },
+  // ===== BENELUX =====
+  { id: "ams-airport", name: "SIXT Amsterdam Schiphol", addr: "1118 Schiphol", lat: 52.3105, lng: 4.7683, country: "NL", type: "airport", fleet: "XL", premium: 0.85, electric: 0.8, hours: "Daily 06:00–23:00" },
   { id: "amsterdam-city", name: "SIXT Amsterdam City", addr: "Stadhouderskade 20, 1054 ES Amsterdam", lat: 52.3620, lng: 4.8800, country: "NL", type: "city", fleet: "L", premium: 0.75, electric: 0.8, hours: "Mon–Sat 07:00–19:00" },
   { id: "rotterdam", name: "SIXT Rotterdam", addr: "Stationsplein 45, 3013 AK Rotterdam", lat: 51.9230, lng: 4.4690, country: "NL", type: "train", fleet: "M", premium: 0.6, electric: 0.7, hours: "Mon–Sat 07:00–19:00" },
   { id: "brussels-airport", name: "SIXT Brussels Airport", addr: "1930 Zaventem", lat: 50.9010, lng: 4.4844, country: "BE", type: "airport", fleet: "L", premium: 0.75, electric: 0.65, hours: "Daily 06:00–23:00" },
   { id: "luxembourg", name: "SIXT Luxembourg Airport", addr: "2987 Luxembourg", lat: 49.6260, lng: 6.2110, country: "LU", type: "airport", fleet: "M", premium: 0.7, electric: 0.6, hours: "Daily 06:00–22:00" },
 
   // ===== UK =====
-  { id: "lhr-airport", name: "SIXT London Heathrow Airport", addr: "Northern Perimeter Rd, Hounslow", lat: 51.4700, lng: -0.4543, country: "GB", type: "airport", fleet: "XL", premium: 0.85, electric: 0.75, hours: "Daily 06:00–23:00" },
-  { id: "lgw-airport", name: "SIXT London Gatwick Airport", addr: "Horley RH6 0NP", lat: 51.1537, lng: -0.1821, country: "GB", type: "airport", fleet: "L", premium: 0.75, electric: 0.7, hours: "Daily 06:00–23:00" },
-  { id: "stn-airport", name: "SIXT London Stansted Airport", addr: "Stansted CM24 1QW", lat: 51.8860, lng: 0.2389, country: "GB", type: "airport", fleet: "M", premium: 0.6, electric: 0.55, hours: "Daily 06:00–23:00" },
+  { id: "lhr-airport", name: "SIXT London Heathrow", addr: "Northern Perimeter Rd, Hounslow", lat: 51.4700, lng: -0.4543, country: "GB", type: "airport", fleet: "XL", premium: 0.85, electric: 0.75, hours: "Daily 06:00–23:00" },
+  { id: "lgw-airport", name: "SIXT London Gatwick", addr: "Horley RH6 0NP", lat: 51.1537, lng: -0.1821, country: "GB", type: "airport", fleet: "L", premium: 0.75, electric: 0.7, hours: "Daily 06:00–23:00" },
+  { id: "stn-airport", name: "SIXT London Stansted", addr: "Stansted CM24 1QW", lat: 51.8860, lng: 0.2389, country: "GB", type: "airport", fleet: "M", premium: 0.6, electric: 0.55, hours: "Daily 06:00–23:00" },
   { id: "man-airport", name: "SIXT Manchester Airport", addr: "Manchester M90 1QX", lat: 53.3537, lng: -2.2750, country: "GB", type: "airport", fleet: "L", premium: 0.7, electric: 0.65, hours: "Daily 06:00–23:00" },
   { id: "edi-airport", name: "SIXT Edinburgh Airport", addr: "Edinburgh EH12 9DN", lat: 55.9500, lng: -3.3725, country: "GB", type: "airport", fleet: "M", premium: 0.65, electric: 0.6, hours: "Daily 06:00–22:00" },
 
   // ===== NORDICS =====
   { id: "cph-airport", name: "SIXT Copenhagen Airport", addr: "Lufthavnsboulevarden, 2770 Kastrup", lat: 55.6181, lng: 12.6561, country: "DK", type: "airport", fleet: "L", premium: 0.75, electric: 0.85, hours: "Daily 06:00–23:00" },
-  { id: "arn-airport", name: "SIXT Stockholm Arlanda Airport", addr: "190 45 Stockholm-Arlanda", lat: 59.6519, lng: 17.9186, country: "SE", type: "airport", fleet: "L", premium: 0.75, electric: 0.85, hours: "Daily 06:00–23:00" },
-  { id: "osl-airport", name: "SIXT Oslo Gardermoen Airport", addr: "2061 Gardermoen", lat: 60.1939, lng: 11.1004, country: "NO", type: "airport", fleet: "L", premium: 0.7, electric: 0.9, hours: "Daily 06:00–23:00" },
+  { id: "arn-airport", name: "SIXT Stockholm Arlanda", addr: "190 45 Stockholm-Arlanda", lat: 59.6519, lng: 17.9186, country: "SE", type: "airport", fleet: "L", premium: 0.75, electric: 0.85, hours: "Daily 06:00–23:00" },
+  { id: "osl-airport", name: "SIXT Oslo Gardermoen", addr: "2061 Gardermoen", lat: 60.1939, lng: 11.1004, country: "NO", type: "airport", fleet: "L", premium: 0.7, electric: 0.9, hours: "Daily 06:00–23:00" },
   { id: "hel-airport", name: "SIXT Helsinki Airport", addr: "01530 Vantaa", lat: 60.3172, lng: 24.9633, country: "FI", type: "airport", fleet: "M", premium: 0.6, electric: 0.75, hours: "Daily 06:00–23:00" },
 
   // ===== USA =====
@@ -203,3 +192,13 @@ window.SIXT_STATIONS = [
   { id: "dxb-airport", name: "SIXT Dubai International", addr: "Dubai DXB", lat: 25.2532, lng: 55.3657, country: "AE", type: "airport", fleet: "XL", premium: 0.95, electric: 0.6, hours: "Daily 24h" },
   { id: "tlv-airport", name: "SIXT Tel Aviv Ben Gurion", addr: "Lod 7015001", lat: 32.0114, lng: 34.8867, country: "IL", type: "airport", fleet: "L", premium: 0.7, electric: 0.6, hours: "Daily 06:00–23:00" }
 ];
+
+export const STATION_BY_ID: Record<string, Station> =
+  Object.fromEntries(STATIONS.map((s) => [s.id, s]));
+
+export const COUNTRY_NAMES: Record<string, string> = {
+  DE: "Germany", AT: "Austria", CH: "Switzerland", FR: "France",
+  IT: "Italy", ES: "Spain", NL: "Netherlands", BE: "Belgium",
+  LU: "Luxembourg", GB: "United Kingdom", DK: "Denmark", SE: "Sweden",
+  NO: "Norway", FI: "Finland", US: "United States", AE: "UAE", IL: "Israel"
+};

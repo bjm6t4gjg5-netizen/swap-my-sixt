@@ -1,6 +1,16 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+dev-dist/
+
+# editor / OS
 .DS_Store
 Thumbs.db
-*.log
-node_modules/
 .vscode/
 .idea/
+*.log
+
+# vite cache
+.vite/
