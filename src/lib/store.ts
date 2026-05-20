@@ -41,9 +41,13 @@ export type Target =
       body?: BodyShape;
     };
 
-export const target = persisted<Target>("sixt.target.v1", {
-  kind: "class",
-  classId: "premium"
+// Default hunt = the booked car (BMW 4 Series 430i — matches DEFAULT_BOOKING).
+export const target = persisted<Target>("sixt.target.v2", {
+  kind: "model",
+  classId: "premium",
+  brand: "BMW",
+  model: "4 Series 430i",
+  body: "coupe"
 });
 
 /** The class used for scoring — null means "any car" (generic scoring). */

@@ -8,16 +8,21 @@
     clearApiKey,
     type ChatMessage
   } from "../lib/analyst";
-  import { offlineReply, STARTER_QUESTIONS } from "../lib/lucasOffline";
+  import {
+    offlineReply,
+    STARTER_QUESTIONS,
+    type OfflineContext
+  } from "../lib/lucasOffline";
   import { booking, target, targetLabel, activeTab } from "../lib/store";
   import { STATION_BY_ID } from "../lib/stations";
   import { CAR_CLASS_BY_ID } from "../lib/cars";
 
   const AVATAR = import.meta.env.BASE_URL + "lucas.jpg";
   const GREETING =
-    "Hey — I'm Lucas, your rental analyst. I work without an API key, so ask away: swap strategy, ACRISS codes, the counter game, car specs, or how to dodge a Blitzer. Add an Anthropic key in the header and I get even sharper.";
+    "Moin — I'm Lucas, your rental analyst. I work without an API key, so ask away, or just tap one of the options below. Add an Anthropic key in the header and I get even cleverer.";
 
   let open = false;
+  let hidden = false; // bubble minimised to an edge nub
   let keySet = getApiKey().length > 0;
   let showKeyPanel = false;
   let keyInput = "";
@@ -28,8 +33,10 @@
   let avatarOk = true;
   let msgEl: HTMLDivElement;
 
-  // lift the bubble above the map's bottom sheet on the Navigate tab
-  $: fabBottom = $activeTab === "navigate" ? 176 : 16;
+  // bottom-left & lower on the Navigate tab (clear of the sheet + locate FAB)
+  $: onNav = $activeTab === "navigate";
+  $: fabBottom = onNav ? 112 : 16;
+  $: fabSide = onNav ? "left" : "right";
 
   function bookingSummary(): string | undefined {
     const b = $booking;
@@ -41,12 +48,28 @@
     const car = b.bookedExample?.trim();
     return [
       car ? `${car} (booked class: ${cls})` : `booked class: ${cls}`,
+      b.sixtStatus && b.sixtStatus !== "none" ? `Sixt ${b.sixtStatus} status` : "",
       st ? `pick-up at ${st}` : "",
       b.pickupDate ? `on ${b.pickupDate}${b.pickupTime ? " " + b.pickupTime : ""}` : "",
       b.actualBrand ? `assigned at counter: ${b.actualBrand} ${b.actualModel}` : ""
     ]
       .filter(Boolean)
       .join(", ");
+  }
+
+  function offlineCtx(): OfflineContext {
+    const b = $booking;
+    let pickup;
+    if (b?.pickupStationId && STATION_BY_ID[b.pickupStationId]) {
+      const st = STATION_BY_ID[b.pickupStationId];
+      pickup = { id: st.id, name: st.name, lat: st.lat, lng: st.lng };
+    }
+    return {
+      booking: bookingSummary(),
+      target: targetLabel($target),
+      pickup,
+      classId: b ? b.expectedClassId : null
+    };
   }
 
   async function scrollDown() {
@@ -86,10 +109,7 @@
         messages = [...messages, { role: "assistant", content: reply }];
       } else {
         await new Promise((r) => setTimeout(r, 430));
-        const reply = offlineReply(text, {
-          booking: bookingSummary(),
-          target: targetLabel($target)
-        });
+        const reply = offlineReply(text, offlineCtx());
         messages = [...messages, { role: "assistant", content: reply }];
       }
     } catch (e) {
@@ -103,47 +123,57 @@
   function send() {
     ask(input);
   }
-
   function onKeydown(e: KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
     }
   }
-
   function openPanel() {
     open = true;
     scrollDown();
   }
 </script>
 
-{#if !open}
+<!-- minimised nub -->
+{#if !open && hidden}
   <button
-    class="fab"
-    style="bottom: calc({fabBottom}px + var(--safe-bottom))"
-    on:click={openPanel}
-    aria-label="Ask the analyst"
+    class="nub"
+    style="bottom: calc({fabBottom}px + var(--safe-bottom)); {fabSide}: 0"
+    on:click={() => (hidden = false)}
+    aria-label="Show the analyst"
   >
-    <span class="fab-label">Ask the analyst</span>
-    <span class="fab-av">
+    <svg viewBox="0 0 24 24" width="16" height="16">
+      <path d="M4 5h16v11H8l-4 4z" fill="currentColor" />
+    </svg>
+  </button>
+{/if}
+
+<!-- floating bubble -->
+{#if !open && !hidden}
+  <div
+    class="fab-wrap"
+    style="bottom: calc({fabBottom}px + var(--safe-bottom)); {fabSide}: 14px"
+  >
+    <button class="fab" on:click={openPanel} aria-label="Ask the analyst">
       {#if avatarOk}
         <img src={AVATAR} alt="Lucas" on:error={() => (avatarOk = false)} />
       {:else}
         <span class="mono">L</span>
       {/if}
-    </span>
-  </button>
+    </button>
+    <button class="fab-hide" on:click={() => (hidden = true)} aria-label="Hide">×</button>
+  </div>
 {/if}
 
+<!-- chat panel -->
 {#if open}
   <div class="panel">
     <header class="p-head">
       <span class="p-av">
         {#if avatarOk}
           <img src={AVATAR} alt="Lucas" on:error={() => (avatarOk = false)} />
-        {:else}
-          <span class="mono">L</span>
-        {/if}
+        {:else}<span class="mono">L</span>{/if}
       </span>
       <div class="p-id">
         <div class="p-name">Lucas · the analyst</div>
@@ -165,7 +195,7 @@
       <div class="keycard">
         <p>
           Optional: paste an Anthropic API key for the full Claude-powered
-          Lucas. It's stored <b>only in this browser</b>, never uploaded.
+          Lucas. Stored <b>only in this browser</b>, never uploaded.
         </p>
         <input
           type="password"
@@ -193,14 +223,6 @@
         </span>
         <div class="bubble">{GREETING}</div>
       </div>
-
-      {#if messages.length === 0}
-        <div class="starters">
-          {#each STARTER_QUESTIONS as q}
-            <button class="starter" on:click={() => ask(q)}>{q}</button>
-          {/each}
-        </div>
-      {/if}
 
       {#each messages as m}
         {#if m.role === "assistant"}
@@ -231,6 +253,14 @@
       {#if error}
         <div class="err">{error}</div>
       {/if}
+
+      {#if !busy}
+        <div class="starters">
+          {#each STARTER_QUESTIONS as q}
+            <button class="starter" on:click={() => ask(q)}>{q}</button>
+          {/each}
+        </div>
+      {/if}
     </div>
 
     <div class="composer">
@@ -256,39 +286,56 @@
 {/if}
 
 <style>
-  .fab {
+  /* minimised nub — a slim tab on the screen edge */
+  .nub {
     position: fixed;
-    right: 14px;
     z-index: 120;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 5px 5px 14px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 100px;
-    box-shadow: var(--shadow-2);
-    transition: bottom 0.2s ease;
-  }
-  .fab:active { transform: scale(0.97); }
-  .fab-label { font-size: 13.5px; font-weight: 700; color: var(--text); }
-  .fab-av,
-  .p-av,
-  .m-av {
-    border-radius: 50%;
-    overflow: hidden;
-    background: linear-gradient(135deg, #ff7a1a, var(--orange-dark));
+    width: 26px;
+    height: 52px;
+    border: none;
+    background: var(--orange);
+    color: white;
     display: grid;
     place-items: center;
-    flex-shrink: 0;
+    box-shadow: var(--shadow-2);
+    border-radius: 13px;
+    opacity: 0.92;
   }
-  .fab-av { width: 38px; height: 38px; }
-  .fab-av img,
-  .p-av img,
-  .m-av img { width: 100%; height: 100%; object-fit: cover; }
-  .mono { color: white; font-weight: 800; font-size: 16px; }
+
+  .fab-wrap { position: fixed; z-index: 120; }
+  .fab {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    border: 2px solid white;
+    background: linear-gradient(135deg, #ff7a1a, var(--orange-dark));
+    box-shadow: var(--shadow-2);
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    padding: 0;
+  }
+  .fab:active { transform: scale(0.94); }
+  .fab img { width: 100%; height: 100%; object-fit: cover; }
+  .fab-hide {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid white;
+    background: var(--text-2);
+    color: white;
+    font-size: 13px;
+    line-height: 1;
+    box-shadow: var(--shadow-1);
+  }
+
+  .mono { color: white; font-weight: 800; font-size: 18px; }
   .mono.sm { font-size: 12px; }
 
+  /* panel */
   .panel {
     position: fixed;
     right: 12px;
@@ -303,7 +350,6 @@
     flex-direction: column;
     overflow: hidden;
   }
-
   .p-head {
     display: flex;
     align-items: center;
@@ -313,7 +359,18 @@
     color: white;
     flex-shrink: 0;
   }
-  .p-av { width: 38px; height: 38px; }
+  .p-av {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--orange-dark);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+  .p-av img,
+  .m-av img { width: 100%; height: 100%; object-fit: cover; }
   .p-id { flex: 1; min-width: 0; line-height: 1.15; }
   .p-name { font-size: 14.5px; font-weight: 800; }
   .p-role { font-size: 11px; opacity: 0.9; }
@@ -337,11 +394,7 @@
     line-height: 1;
   }
 
-  .keycard {
-    background: var(--blue-soft);
-    padding: 12px;
-    flex-shrink: 0;
-  }
+  .keycard { background: var(--blue-soft); padding: 12px; flex-shrink: 0; }
   .keycard p {
     margin: 0 0 8px;
     font-size: 12px;
@@ -358,7 +411,6 @@
     outline: none;
     margin-bottom: 8px;
   }
-  .keycard input:focus { border-color: var(--blue); }
   .keycard-row { display: flex; gap: 8px; }
   .kc-skip,
   .kc-go {
@@ -385,7 +437,16 @@
   }
   .msg { display: flex; gap: 8px; align-items: flex-end; }
   .msg.me { justify-content: flex-end; }
-  .m-av { width: 26px; height: 26px; }
+  .m-av {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--orange-dark);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
   .bubble {
     max-width: 80%;
     padding: 9px 12px;
@@ -422,6 +483,14 @@
     40% { opacity: 1; }
   }
 
+  .err {
+    font-size: 12.5px;
+    color: var(--red);
+    background: rgba(255, 59, 48, 0.1);
+    border-radius: 10px;
+    padding: 9px 11px;
+  }
+
   .starters {
     display: flex;
     flex-wrap: wrap;
@@ -438,14 +507,6 @@
     border-radius: 100px;
   }
   .starter:active { transform: scale(0.96); }
-
-  .err {
-    font-size: 12.5px;
-    color: var(--red);
-    background: rgba(255, 59, 48, 0.1);
-    border-radius: 10px;
-    padding: 9px 11px;
-  }
 
   .composer {
     display: flex;
@@ -478,4 +539,8 @@
   }
   .send:disabled { background: var(--muted); }
   .send:active { transform: scale(0.94); }
+
+  @media (min-width: 560px) {
+    .panel { width: 400px; }
+  }
 </style>

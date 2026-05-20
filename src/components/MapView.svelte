@@ -223,7 +223,7 @@
       scoreSelected();
       drawRoutes();
       drawStations();
-      fitToRoute();
+      fitToAllRoutes();
       sheetState = "mid";
       addRecent({ label: dest.label, lat: dest.lat, lng: dest.lng });
     } catch (e) {
@@ -268,6 +268,12 @@
     }
   }
 
+  /** Distinct colours for routes A / B / C. */
+  const ROUTE_COLORS = ["#007aff", "#7b3fd6", "#0a9d9d"];
+  function routeColor(i: number): string {
+    return ROUTE_COLORS[i % ROUTE_COLORS.length];
+  }
+
   /** Switch to a different route alternative. */
   function selectRoute(i: number) {
     if (i === selectedRouteIndex || i < 0 || i >= routeOptions.length) return;
@@ -276,6 +282,7 @@
     scoreSelected();
     drawRoutes();
     drawStations();
+    fitToRoute();
   }
 
   function scoreSelected() {
@@ -314,7 +321,7 @@
       if (i === selectedRouteIndex) return;
       const line = L.polyline(
         o.route.coordinates.map((c) => [c.lat, c.lng]),
-        { color: "#9aa0ab", weight: 5, opacity: 0.55, lineCap: "round" }
+        { color: routeColor(i), weight: 4, opacity: 0.45, lineCap: "round" }
       ).addTo(map);
       line.on("click", () => selectRoute(i));
       routeLines.push(line);
@@ -323,10 +330,28 @@
     if (sel) {
       const line = L.polyline(
         sel.route.coordinates.map((c) => [c.lat, c.lng]),
-        { color: "#007aff", weight: 6, opacity: 0.95, lineCap: "round" }
+        {
+          color: routeColor(selectedRouteIndex),
+          weight: 6.5,
+          opacity: 1,
+          lineCap: "round"
+        }
       ).addTo(map);
       routeLines.push(line);
     }
+  }
+
+  /** Fit the map to every route option so they can all be compared. */
+  function fitToAllRoutes() {
+    if (!routeOptions.length) return;
+    const pts: [number, number][] = [];
+    for (const o of routeOptions) {
+      for (const c of o.route.coordinates) pts.push([c.lat, c.lng]);
+    }
+    map.fitBounds(L.latLngBounds(pts), {
+      paddingTopLeft: [40, 150],
+      paddingBottomRight: [40, 360]
+    });
   }
 
   function drawStations() {
@@ -490,10 +515,13 @@
             <button
               class="route-chip"
               class:on={i === selectedRouteIndex}
+              style="border-left:3px solid {routeColor(i)}"
               on:click={() => selectRoute(i)}
             >
               <div class="rc-head">
-                <span class="rc-key">Route {o.key}</span>
+                <span class="rc-key" style="color:{routeColor(i)}">
+                  Route {o.key}
+                </span>
                 <span class="rc-time">{formatDuration(o.route.duration)}</span>
               </div>
               <div class="rc-dist">
@@ -698,8 +726,8 @@
     text-align: left;
   }
   .route-chip.on {
-    border-color: var(--blue);
     background: var(--blue-soft);
+    box-shadow: inset 0 0 0 1.5px var(--blue);
   }
   .route-chip:active { transform: scale(0.98); }
   .rc-head {

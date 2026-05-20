@@ -361,9 +361,19 @@
       const spD = v.topSpeed - bookedVariant.topSpeed;
       if (Math.abs(spD) >= 10)
         diffs.push(`${spD > 0 ? "+" : ""}${spD} km/h top speed`);
+      // fuel-efficiency comparison (only meaningful between like fuels)
+      if (v.fuel !== "Electric" && bookedVariant.fuel !== "Electric") {
+        const cD = v.consumption - bookedVariant.consumption;
+        if (Math.abs(cD) >= 0.4)
+          diffs.push(
+            `${cD > 0 ? "+" : ""}${cD.toFixed(1)} l/100km (${
+              cD > 0 ? "thirstier" : "more efficient"
+            })`
+          );
+      }
       if (diffs.length) base += ` · ${diffs.join(", ")}`;
     } else if (v) {
-      base += ` · ${v.hp} hp, ${v.topSpeed} km/h, ${v.drivetrain}`;
+      base += ` · ${v.hp} hp, ${v.topSpeed} km/h, ${v.drivetrain}, ${consumptionLabel(v)}`;
     }
     return base;
   }
@@ -1274,14 +1284,41 @@
   .f-help { font-size: 12px; color: var(--muted); line-height: 1.45; }
 
   .ipt {
+    box-sizing: border-box;
+    width: 100%;
+    /* normalise iOS rendering so date / time / select all match height */
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 44px;
     border: 1px solid var(--line);
     border-radius: 11px;
-    padding: 11px 12px;
+    padding: 0 12px;
     font-size: 15px;
+    line-height: 1.2;
     background: var(--surface);
     color: var(--text);
     outline: none;
-    width: 100%;
+    font-family: inherit;
+  }
+  /* selects need room for a custom chevron */
+  select.ipt {
+    padding-right: 34px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 11px center;
+  }
+  /* date / time inputs: keep the value left-aligned and vertically centred */
+  input[type="date"].ipt,
+  input[type="time"].ipt {
+    padding: 0 12px;
+    text-align: left;
+  }
+  textarea.ipt {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 64px;
+    padding: 10px 12px;
+    line-height: 1.45;
   }
   .ipt:focus { border-color: var(--blue); }
   textarea.ipt { resize: vertical; font-family: inherit; }
