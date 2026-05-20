@@ -1,4 +1,4 @@
-# Swap my Sixt — v3.3
+# Swap my Sixt — v3.4
 
 A navigation web app that helps you swap a Sixt rental into the car you
 actually want. Plan a route, see every Sixt station along it, and get a live
@@ -39,10 +39,20 @@ whether to accept, hold out, or point at a specific better car and ask for it.
 summary, your target, recommended swap stops and a full ranked table of every
 Sixt station along the way. A paper reference for the drive.
 
+**Route alternatives** — like Apple Maps, the planner returns up to three
+routes. Each shows its distance and drive time; tap to compare, and the Sixt
+stations re-rank for whichever route you pick.
+
 **Send to Maps** — the app doesn't try to be a navigator. The "Send to Maps"
 button (and every station's detail) opens a chooser: Apple Maps, Google Maps,
 or Share/AirDrop the next stop to a friend or a second device. Real driving
 nav stays with the app that does it best.
+
+**Ask the analyst** — a chat bubble (bottom-right) opens "Lucas", an
+AI rental analyst powered by Claude. He sees your booking and target and
+gives swap advice. The Anthropic API key is entered in-app and stored only in
+your browser — never bundled or committed. Replace `public/lucas.jpg` with a
+real photo for his avatar.
 
 The **Cars** tab also has a built-in **ACRISS / SIPP code guide** with a live
 decoder, and search understands body-type terms — "limousine", "avant",

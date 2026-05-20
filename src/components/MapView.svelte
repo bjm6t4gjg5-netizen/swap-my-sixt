@@ -9,7 +9,7 @@
   import StrategySheet from "./StrategySheet.svelte";
   import MapsMenu from "./MapsMenu.svelte";
   import { STATIONS } from "../lib/stations";
-  import { fetchRoute } from "../lib/routing";
+  import { fetchRoutes } from "../lib/routing";
   import { stationsAlongRoute, verdict } from "../lib/heuristic";
   import { formatKm, formatDuration } from "../lib/geo";
   import type { Route, ScoredStation } from "../lib/types";
@@ -30,7 +30,10 @@
 
   let origin: NamedPoint | null = null;
   let dest: NamedPoint | null = null;
-  let route: Route | null = null;
+  /** All route alternatives from OSRM; index 0 is the fastest. */
+  let routes: Route[] = [];
+  let selectedRouteIndex = 0;
+  $: route = routes.length ? routes[selectedRouteIndex] ?? routes[0] : null;
   let scored: ScoredStation[] = [];
   let selected: ScoredStation | null = null;
 
@@ -43,7 +46,7 @@
   let showStrategy = false;
 
   // Leaflet layers we manage by hand
-  let routeLine: L.Polyline | null = null;
+  let routeLines: L.Polyline[] = [];
   let stationLayer: L.LayerGroup | null = null;
   let originMarker: L.Marker | null = null;
   let destMarker: L.Marker | null = null;
@@ -204,13 +207,14 @@
 
   async function planRoute() {
     if (!origin || !dest) return;
-    loading = "Calculating fastest route…";
+    loading = "Calculating routes…";
     selected = null;
     viaStation = null;
     try {
-      route = await fetchRoute([origin, dest]);
-      scored = stationsAlongRoute(route, STATIONS, targetClassId($target));
-      drawRoute();
+      routes = await fetchRoutes([origin, dest]);
+      selectedRouteIndex = 0;
+      scoreSelected();
+      drawRoutes();
       drawStations();
       fitToRoute();
       sheetState = "mid";
@@ -226,14 +230,15 @@
     if (!origin || !dest) return;
     loading = `Re-routing via ${station.name}…`;
     try {
-      route = await fetchRoute([
+      routes = await fetchRoutes([
         origin,
         { lat: station.lat, lng: station.lng, label: station.name },
         dest
       ]);
-      scored = stationsAlongRoute(route, STATIONS, targetClassId($target));
+      selectedRouteIndex = 0;
       viaStation = station;
-      drawRoute();
+      scoreSelected();
+      drawRoutes();
       drawStations();
       fitToRoute();
       selected = null;
@@ -243,6 +248,22 @@
     } finally {
       loading = "";
     }
+  }
+
+  /** Switch to a different route alternative. */
+  function selectRoute(i: number) {
+    if (i === selectedRouteIndex || i < 0 || i >= routes.length) return;
+    selectedRouteIndex = i;
+    selected = null;
+    scoreSelected();
+    drawRoutes();
+    drawStations();
+  }
+
+  function scoreSelected() {
+    scored = route
+      ? stationsAlongRoute(route, STATIONS, targetClassId($target))
+      : [];
   }
 
   function swapEnds() {
@@ -255,23 +276,38 @@
   function clearField(field: "origin" | "dest") {
     if (field === "origin") origin = null;
     else dest = null;
-    route = null;
+    routes = [];
+    selectedRouteIndex = 0;
     scored = [];
     selected = null;
-    routeLine?.remove();
-    routeLine = null;
+    viaStation = null;
+    routeLines.forEach((l) => l.remove());
+    routeLines = [];
     stationLayer?.clearLayers();
     drawEndpoints();
   }
 
   /* ---------- drawing ---------- */
-  function drawRoute() {
-    if (!route) return;
-    routeLine?.remove();
-    routeLine = L.polyline(
-      route.coordinates.map((c) => [c.lat, c.lng]),
-      { color: "#007aff", weight: 6, opacity: 0.9, lineCap: "round" }
-    ).addTo(map);
+  function drawRoutes() {
+    routeLines.forEach((l) => l.remove());
+    routeLines = [];
+    // draw non-selected first (underneath), then the selected one on top
+    routes.forEach((r, i) => {
+      if (i === selectedRouteIndex) return;
+      const line = L.polyline(
+        r.coordinates.map((c) => [c.lat, c.lng]),
+        { color: "#9aa0ab", weight: 5, opacity: 0.55, lineCap: "round" }
+      ).addTo(map);
+      line.on("click", () => selectRoute(i));
+      routeLines.push(line);
+    });
+    if (routes[selectedRouteIndex]) {
+      const sel = L.polyline(
+        routes[selectedRouteIndex].coordinates.map((c) => [c.lat, c.lng]),
+        { color: "#007aff", weight: 6, opacity: 0.95, lineCap: "round" }
+      ).addTo(map);
+      routeLines.push(sel);
+    }
   }
 
   function drawStations() {
@@ -338,11 +374,11 @@
   }
 
   function fitToRoute() {
-    if (!routeLine) return;
-    map.fitBounds(routeLine.getBounds(), {
-      paddingTopLeft: [40, 150],
-      paddingBottomRight: [40, 360]
-    });
+    if (!route) return;
+    map.fitBounds(
+      L.latLngBounds(route.coordinates.map((c) => [c.lat, c.lng])),
+      { paddingTopLeft: [40, 150], paddingBottomRight: [40, 360] }
+    );
   }
 
   function selectStation(s: ScoredStation) {
@@ -428,6 +464,23 @@
           </button>
         {/if}
       </div>
+
+      {#if routes.length > 1}
+        <div class="routes-row">
+          {#each routes as r, i}
+            <button
+              class="route-chip"
+              class:on={i === selectedRouteIndex}
+              on:click={() => selectRoute(i)}
+            >
+              <div class="rc-time">{formatDuration(r.duration)}</div>
+              <div class="rc-dist">
+                {formatKm(r.distance)} · {i === 0 ? "Fastest" : "Alt " + i}
+              </div>
+            </button>
+          {/each}
+        </div>
+      {/if}
 
       <div class="targetwrap">
         <TargetBar />
@@ -604,6 +657,31 @@
     box-shadow: 0 3px 10px rgba(0, 122, 255, 0.32);
   }
   .go:active { transform: scale(0.96); }
+
+  .routes-row {
+    display: flex;
+    gap: 7px;
+    overflow-x: auto;
+    padding: 2px 14px 10px;
+    scrollbar-width: none;
+  }
+  .routes-row::-webkit-scrollbar { display: none; }
+  .route-chip {
+    flex: 1;
+    min-width: 96px;
+    border: 1.5px solid var(--line);
+    background: var(--surface);
+    border-radius: 11px;
+    padding: 7px 10px;
+    text-align: left;
+  }
+  .route-chip.on {
+    border-color: var(--blue);
+    background: var(--blue-soft);
+  }
+  .route-chip:active { transform: scale(0.98); }
+  .rc-time { font-size: 14px; font-weight: 800; letter-spacing: -0.01em; }
+  .rc-dist { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
   .targetwrap { padding: 2px 14px 10px; }
 

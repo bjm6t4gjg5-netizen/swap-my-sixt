@@ -66,7 +66,23 @@ export function targetSubLabel(t: Target): string {
 }
 
 /** The user's current Sixt booking, entered manually. */
-export const booking = persisted<Booking | null>("sixt.booking", null);
+const DEFAULT_BOOKING: Booking = {
+  ref: "Husum rental",
+  acrissCode: "",
+  bookedExample: "BMW 4 Series Coupé",
+  pickupStationId: "husum",
+  pickupDate: "2026-05-23",
+  pickupTime: "11:30",
+  returnStationId: "husum",
+  returnDate: "2026-06-09",
+  returnTime: "08:30",
+  expectedClassId: "premium",
+  notes: ""
+};
+export const booking = persisted<Booking | null>(
+  "sixt.booking.v2",
+  DEFAULT_BOOKING
+);
 
 /** Last known device location, shared across views. */
 export const myLocation = writable<LatLng | null>(null);

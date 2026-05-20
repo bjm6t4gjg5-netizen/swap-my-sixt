@@ -25,7 +25,10 @@
       bookedExample: "",
       pickupStationId: "",
       pickupDate: "",
+      pickupTime: "",
+      returnStationId: "",
       returnDate: "",
+      returnTime: "",
       expectedClassId: "premium",
       actualBrand: "",
       actualModel: "",
@@ -86,6 +89,24 @@
   $: pickupStation = current?.pickupStationId
     ? STATION_BY_ID[current.pickupStationId]
     : undefined;
+  $: returnStation = current?.returnStationId
+    ? STATION_BY_ID[current.returnStationId]
+    : undefined;
+
+  function fmtDateTime(date?: string, time?: string): string {
+    if (!date) return "—";
+    let s = date;
+    try {
+      s = new Date(date + "T00:00").toLocaleDateString(undefined, {
+        weekday: "short",
+        day: "numeric",
+        month: "short"
+      });
+    } catch {
+      /* keep raw string */
+    }
+    return time ? `${s} · ${time}` : s;
+  }
   $: bookedDecoded = current ? decodeAcriss(current.acrissCode ?? "") : null;
   $: expectedClass = current ? CAR_CLASS_BY_ID[current.expectedClassId] : undefined;
   $: actualClass = current?.actualClassId
@@ -341,14 +362,18 @@
         <div class="tg">
           <span class="t-cap">Pick-up</span>
           <span class="tg-v">{pickupStation ? pickupStation.name : "Not set"}</span>
+          <span class="tg-sub">{fmtDateTime(current.pickupDate, current.pickupTime)}</span>
         </div>
         <div class="tg">
-          <span class="t-cap">Dates</span>
+          <span class="t-cap">Return</span>
           <span class="tg-v">
-            {current.pickupDate || "—"}{current.returnDate
-              ? " → " + current.returnDate
-              : ""}
+            {returnStation
+              ? returnStation.name
+              : pickupStation
+                ? pickupStation.name
+                : "Not set"}
           </span>
+          <span class="tg-sub">{fmtDateTime(current.returnDate, current.returnTime)}</span>
         </div>
         <div class="tg">
           <span class="t-cap">Assigned car</span>
@@ -628,13 +653,33 @@
       </div>
 
       <div class="frow">
-        <label class="field">
+        <label class="field grow2">
           <span class="f-lab">Pick-up date</span>
           <input class="ipt" type="date" bind:value={draft.pickupDate} />
         </label>
         <label class="field">
+          <span class="f-lab">Time</span>
+          <input class="ipt" type="time" bind:value={draft.pickupTime} />
+        </label>
+      </div>
+
+      <div class="field">
+        <span class="f-lab">Return station</span>
+        <StationSearchField
+          stationId={draft.returnStationId ?? ""}
+          placeholder="Same as pick-up, or search…"
+          on:select={(e) => (draft.returnStationId = e.detail)}
+        />
+      </div>
+
+      <div class="frow">
+        <label class="field grow2">
           <span class="f-lab">Return date</span>
           <input class="ipt" type="date" bind:value={draft.returnDate} />
+        </label>
+        <label class="field">
+          <span class="f-lab">Time</span>
+          <input class="ipt" type="time" bind:value={draft.returnTime} />
         </label>
       </div>
 
@@ -802,8 +847,9 @@
     padding-top: 14px;
     border-top: 1px solid var(--line-soft);
   }
-  .tg { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .tg { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .tg-v { font-size: 14px; font-weight: 600; }
+  .tg-sub { font-size: 11.5px; color: var(--muted); }
 
   .t-notes {
     margin-top: 13px;
@@ -1027,6 +1073,7 @@
   .field { display: flex; flex-direction: column; gap: 6px; }
   .frow { display: flex; gap: 11px; }
   .frow .field { flex: 1; }
+  .frow .field.grow2 { flex: 2; }
   .f-lab { font-size: 12.5px; font-weight: 600; color: var(--text-2); }
   .f-lab em { color: var(--muted); font-weight: 400; font-style: normal; }
   .f-help { font-size: 12px; color: var(--muted); line-height: 1.45; }

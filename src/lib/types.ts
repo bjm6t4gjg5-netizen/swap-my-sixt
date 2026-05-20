@@ -85,7 +85,10 @@ export interface Booking {
   bookedExample?: string;
   pickupStationId?: string;
   pickupDate?: string;
+  pickupTime?: string;
+  returnStationId?: string;
   returnDate?: string;
+  returnTime?: string;
   /** Internal class — derived from the ACRISS code, or chosen manually. */
   expectedClassId: CarClassId;
   actualBrand?: string;

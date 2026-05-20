@@ -4,6 +4,7 @@
   import BookingView from "./components/BookingView.svelte";
   import CarsView from "./components/CarsView.svelte";
   import StationsView from "./components/StationsView.svelte";
+  import ChatWidget from "./components/ChatWidget.svelte";
   import { activeTab } from "./lib/store";
 </script>
 
@@ -23,6 +24,7 @@
       <StationsView active={$activeTab === "stations"} />
     </div>
   </main>
+  <ChatWidget />
 </div>
 
 <style>
