@@ -233,7 +233,8 @@
   }
   function bestOf(list: NegCar[]): NegCar | null {
     if (!list.length) return null;
-    return list.reduce((a, b) => (carTier(b) > carTier(a) ? b : a));
+    // tier first, then preference fit — see rankScore
+    return list.reduce((a, b) => (rankScore(b) > rankScore(a) ? b : a));
   }
 
   function addNegCar(which: "offered" | "spotted", v: CarVariant) {
@@ -377,6 +378,91 @@
     return b === "suv" ? "SUV" : b.charAt(0).toUpperCase() + b.slice(1);
   }
 
+  /* ---------- preference fit (drives recommendations + scoring) ---------- */
+  // One reactive object so blocks that read it stay reactive to every control.
+  $: priorities = {
+    brand: recoBrand,
+    fuel: recoFuel,
+    body: recoBody,
+    drive: recoDrive,
+    minSpeed: recoMinSpeed
+  };
+
+  interface PrefFit {
+    active: number;
+    met: number;
+    misses: string[];
+  }
+
+  /** How well a variant matches the priorities the user has set. */
+  function prefFit(v: CarVariant): PrefFit {
+    let active = 0;
+    let met = 0;
+    const misses: string[] = [];
+    if (recoBrand !== "All") {
+      active++;
+      if (v.brand === recoBrand) met++;
+      else misses.push(recoBrand);
+    }
+    if (recoFuel !== "Any") {
+      active++;
+      if (v.fuel === recoFuel) met++;
+      else misses.push(recoFuel.toLowerCase());
+    }
+    if (recoBody !== "Any") {
+      active++;
+      if (v.body === recoBody) met++;
+      else misses.push(bodyLabel(recoBody).toLowerCase());
+    }
+    if (recoDrive !== "Any") {
+      active++;
+      if (v.drivetrain === recoDrive) met++;
+      else misses.push(recoDrive);
+    }
+    if (recoMinSpeed > 0) {
+      active++;
+      if (v.topSpeed >= recoMinSpeed) met++;
+      else misses.push(`${recoMinSpeed}+ km/h`);
+    }
+    return { active, met, misses };
+  }
+  function fitFrac(f: PrefFit): number {
+    return f.active ? f.met / f.active : 0;
+  }
+  function fitText(f: PrefFit): string {
+    if (f.met === f.active) return "Fits your brief";
+    if (f.met === 0) return "Off your brief";
+    return `Fits ${f.met}/${f.active}`;
+  }
+  function fitTone(f: PrefFit): string {
+    if (f.met === f.active) return "good";
+    if (f.met === 0) return "bad";
+    return "warn";
+  }
+
+  /** Counter ranking: tier first, then preference fit as the tie-breaker. */
+  function rankScore(c: NegCar): number {
+    const v = negVariant(c);
+    return carTier(c) * 10 + (v ? fitFrac(prefFit(v)) * 6 : 0);
+  }
+
+  /** One verdict line: which offered car best fits the user's priorities. */
+  function prefNote(): string {
+    if (!recoFiltered || !neg.offered.length) return "";
+    const scored = neg.offered
+      .map((c) => ({ c, v: negVariant(c) }))
+      .filter((x): x is { c: NegCar; v: CarVariant } => !!x.v)
+      .map((x) => ({ c: x.c, f: prefFit(x.v) }))
+      .sort((a, b) => fitFrac(b.f) - fitFrac(a.f));
+    if (!scored.length || scored[0].f.active === 0) return "";
+    const top = scored[0];
+    if (top.f.met === top.f.active)
+      return ` On your priorities, the ${top.c.brand} ${top.c.model} ticks every box — if you're choosing between offers, that's the one.`;
+    if (top.f.met === 0)
+      return ` On your priorities, none of the offered cars fit what you asked for — worth pushing for one that does.`;
+    return ` On your priorities, the ${top.c.brand} ${top.c.model} fits best (${top.f.met}/${top.f.active}), still missing ${top.f.misses.join(", ")}.`;
+  }
+
   // Final list: filters applied, one variant per family, easiest first, max 6.
   $: recommendations = ((): CarVariant[] => {
     let pool = recoPool;
@@ -419,6 +505,9 @@
   type NegTone = "good" | "warn" | "bad" | "info";
   $: negVerdict = ((): { tone: NegTone; text: string } => {
     if (!current || !expectedClass) return { tone: "info", text: "" };
+    // referencing `priorities` keeps the verdict reactive to the panel
+    const _ = priorities;
+    const note = prefNote();
     const bt = expectedClass.tier;
     const bestO = bestOf(neg.offered);
     const bestS = bestOf(neg.spotted);
@@ -442,7 +531,9 @@
       const gap = carTier(bestS) - (bestO ? carTier(bestO) : bt);
       return {
         tone: "good",
-        text: `Negotiate hard: the ${bestS.brand} ${bestS.model} on the lot is ${gap} tier${gap > 1 ? "s" : ""} above ${overWhat}. Ask for it by name — an idle car is easy to give away. ${statusLeverage(sixtStatus)}`
+        text:
+          `Negotiate hard: the ${bestS.brand} ${bestS.model} on the lot is ${gap} tier${gap > 1 ? "s" : ""} above ${overWhat}. Ask for it by name — an idle car is easy to give away. ${statusLeverage(sixtStatus)}` +
+          note
       };
     }
     if (bestO) {
@@ -450,7 +541,9 @@
       if (d > 0) {
         return {
           tone: "good",
-          text: `Take it. ${bestO.brand} ${bestO.model} is a ${d}-tier upgrade on your booked ${expectedClass.label} — hold out only if you've spotted something even better.`
+          text:
+            `Take it. ${bestO.brand} ${bestO.model} is a ${d}-tier upgrade on your booked ${expectedClass.label} — hold out only if you've spotted something even better.` +
+            note
         };
       }
       if (d === 0) {
@@ -461,12 +554,15 @@
             (bookedElite
               ? " — and your code is the Elite trim, so this arguably falls a touch short. "
               : ". ") +
-            `Scan the lot — with your status you can fairly ask for a step up. ${statusLeverage(sixtStatus)}`
+            `Scan the lot — with your status you can fairly ask for a step up. ${statusLeverage(sixtStatus)}` +
+            note
         };
       }
       return {
         tone: "bad",
-        text: `Push back. Everything offered is below your booked ${expectedClass.label} — you're entitled to at least that. Decline the downgrade and ask them to honour the booking or upgrade you.`
+        text:
+          `Push back. Everything offered is below your booked ${expectedClass.label} — you're entitled to at least that. Decline the downgrade and ask them to honour the booking or upgrade you.` +
+          note
       };
     }
     return {
@@ -696,59 +792,51 @@
         {/if}
       </div>
 
+      <!-- shared priorities — drive the picks below AND score offered cars -->
+      <div class="prefs">
+        <div class="prefs-head">
+          Your priorities
+          <span>— shape the picks below and score every car you're offered</span>
+        </div>
+        <div class="prefs-grid">
+          <select class="rf" bind:value={recoBrand} aria-label="Preferred brand">
+            <option value="All">Any brand</option>
+            {#each recoBrands as b}<option value={b}>{b}</option>{/each}
+          </select>
+          <select class="rf" bind:value={recoFuel} aria-label="Preferred fuel">
+            <option value="Any">Any fuel</option>
+            {#each recoFuels as f}<option value={f}>{f}</option>{/each}
+          </select>
+          <select class="rf" bind:value={recoBody} aria-label="Preferred body">
+            <option value="Any">Any body</option>
+            {#each recoBodies as b}<option value={b}>{bodyLabel(b)}</option>{/each}
+          </select>
+          <select class="rf" bind:value={recoDrive} aria-label="Preferred drivetrain">
+            <option value="Any">Any drive</option>
+            {#each recoDrives as d}<option value={d}>{d}</option>{/each}
+          </select>
+          <select class="rf" bind:value={recoMinSpeed} aria-label="Minimum top speed">
+            <option value={0}>Any speed</option>
+            <option value={200}>200+ km/h</option>
+            <option value={220}>220+ km/h</option>
+            <option value={240}>240+ km/h</option>
+            <option value={250}>250 km/h only</option>
+          </select>
+        </div>
+        {#if recoFiltered}
+          <button class="reco-clear" on:click={clearRecoFilters}>↺ Clear priorities</button>
+        {/if}
+      </div>
+
       {#if negStation}
         <div class="reco">
           <div class="reco-head">
             <span class="reco-title">Cars worth asking for</span>
             <span class="reco-sub">
-              Realistic upgrades at {negStation.name.replace("SIXT ", "")} —
-              hand the agent a specific name. Tap one you spot on the lot to log it.
+              Realistic upgrades at {negStation.name.replace("SIXT ", "")},
+              matched to your priorities. Tap one you spot on the lot to log it.
             </span>
           </div>
-
-          {#if recoBrands.length > 1}
-            <div class="reco-brands">
-              <button
-                class="rb"
-                class:on={recoBrand === "All"}
-                on:click={() => (recoBrand = "All")}
-              >All brands</button>
-              {#each recoBrands as b}
-                <button
-                  class="rb"
-                  class:on={recoBrand === b}
-                  on:click={() => (recoBrand = b)}
-                >{b}</button>
-              {/each}
-            </div>
-          {/if}
-
-          {#if recoPool.length > 0}
-            <div class="reco-filters">
-              <select class="rf" bind:value={recoFuel} aria-label="Fuel type">
-                <option value="Any">Any fuel</option>
-                {#each recoFuels as f}<option value={f}>{f}</option>{/each}
-              </select>
-              <select class="rf" bind:value={recoBody} aria-label="Body type">
-                <option value="Any">Any body</option>
-                {#each recoBodies as b}<option value={b}>{bodyLabel(b)}</option>{/each}
-              </select>
-              <select class="rf" bind:value={recoDrive} aria-label="Drivetrain">
-                <option value="Any">Any drive</option>
-                {#each recoDrives as d}<option value={d}>{d}</option>{/each}
-              </select>
-              <select class="rf" bind:value={recoMinSpeed} aria-label="Minimum top speed">
-                <option value={0}>Any speed</option>
-                <option value={200}>200+ km/h</option>
-                <option value={220}>220+ km/h</option>
-                <option value={240}>240+ km/h</option>
-                <option value={250}>250 km/h only</option>
-              </select>
-            </div>
-            {#if recoFiltered}
-              <button class="reco-clear" on:click={clearRecoFilters}>↺ Clear filters</button>
-            {/if}
-          {/if}
 
           {#if recommendations.length}
             <div class="reco-list">
@@ -770,8 +858,8 @@
           {:else}
             <div class="reco-empty">
               {#if recoFiltered}
-                No cars match these filters at this branch — loosen one, or
-                <button class="reco-clear inline" on:click={clearRecoFilters}>clear filters</button>.
+                No cars match your priorities at this branch — loosen one, or
+                <button class="reco-clear inline" on:click={clearRecoFilters}>clear them</button>.
               {:else}
                 Your booked class is already near the top — focus on getting at
                 least what you booked.
@@ -804,6 +892,17 @@
                   </div>
                 {/if}
                 <span class="ncar-class">{tierReason(c)}</span>
+                {#if v && recoFiltered}
+                  {@const fit = prefFit(v)}
+                  {#if fit.active > 0}
+                    <div class="ncar-fit">
+                      <span class="fitbadge {fitTone(fit)}">{fitText(fit)}</span>
+                      {#if fit.misses.length}
+                        <span class="fitmiss">misses {fit.misses.join(", ")}</span>
+                      {/if}
+                    </div>
+                  {/if}
+                {/if}
               </div>
               <button
                 class="ncar-x"
@@ -853,6 +952,17 @@
                   </div>
                 {/if}
                 <span class="ncar-class">{tierReason(c)}</span>
+                {#if v && recoFiltered}
+                  {@const fit = prefFit(v)}
+                  {#if fit.active > 0}
+                    <div class="ncar-fit">
+                      <span class="fitbadge {fitTone(fit)}">{fitText(fit)}</span>
+                      {#if fit.misses.length}
+                        <span class="fitmiss">misses {fit.misses.join(", ")}</span>
+                      {/if}
+                    </div>
+                  {/if}
+                {/if}
               </div>
               <button
                 class="ncar-x"
@@ -1397,6 +1507,28 @@
     margin-right: 5px;
   }
 
+  /* ---------- priorities panel ---------- */
+  .prefs {
+    background: var(--blue-soft);
+    border-radius: 13px;
+    padding: 11px;
+    margin-bottom: 13px;
+  }
+  .prefs-head { font-size: 13px; font-weight: 800; margin-bottom: 8px; }
+  .prefs-head span {
+    font-weight: 500;
+    font-size: 11.5px;
+    color: var(--text-2);
+  }
+  .prefs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  @media (min-width: 560px) {
+    .prefs-grid { grid-template-columns: repeat(5, 1fr); }
+  }
+
   /* ---------- recommendations ---------- */
   .reco {
     background: var(--surface-2);
@@ -1407,34 +1539,6 @@
   .reco-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
   .reco-title { font-size: 14px; font-weight: 800; }
   .reco-sub { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
-  .reco-brands {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 10px;
-  }
-  .rb {
-    border: 1px solid var(--line);
-    background: var(--surface);
-    color: var(--text-2);
-    font-size: 12px;
-    font-weight: 700;
-    padding: 5px 10px;
-    border-radius: 100px;
-  }
-  .rb.on {
-    background: var(--blue);
-    border-color: var(--blue);
-    color: white;
-  }
-  .rb:active { transform: scale(0.95); }
-
-  .reco-filters {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    margin-bottom: 8px;
-  }
   .rf {
     -webkit-appearance: none;
     appearance: none;
@@ -1460,12 +1564,9 @@
     color: var(--blue);
     font-size: 12px;
     font-weight: 700;
-    padding: 0 2px 8px;
+    padding: 8px 2px 0;
   }
   .reco-clear.inline { padding: 0; font-size: inherit; font-weight: 600; }
-  @media (min-width: 540px) {
-    .reco-filters { grid-template-columns: repeat(4, 1fr); }
-  }
 
   .reco-list { display: flex; flex-direction: column; gap: 7px; }
   .reco-card {
@@ -1551,6 +1652,23 @@
     margin-top: 6px;
     display: block;
   }
+  .ncar-fit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 7px;
+    margin-top: 6px;
+  }
+  .fitbadge {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 6px;
+  }
+  .fitbadge.good { background: rgba(52,199,89,0.16); color: #1f8a3b; }
+  .fitbadge.warn { background: rgba(255,159,10,0.18); color: #b9710a; }
+  .fitbadge.bad { background: var(--surface-2); color: var(--muted); }
+  .fitmiss { font-size: 10.5px; color: var(--muted); }
   .delta {
     flex-shrink: 0;
     font-size: 11px;

@@ -1,4 +1,4 @@
-# Swap my Sixt — v3.10
+# Swap my Sixt — v4.0
 
 A navigation web app that helps you swap a Sixt rental into the car you
 actually want. Plan a route, see every Sixt station along it, and get a live
@@ -38,12 +38,14 @@ A 131-strong variant database means each car carries real specs — horsepower,
 top speed, 0–100, drivetrain, fuel, consumption — and the tool spells out the
 concrete difference vs your booked car ("+88 hp, AWD vs RWD"). It factors in
 your Sixt loyalty status, flags what counts as a good deal, and tells you
-whether to accept, hold out, or point at a specific better car. Set the branch
-and it also suggests **specific cars worth asking for** — realistic upgrades
-within reach of that branch type and your status, filterable by brand, fuel,
-body, drivetrain and minimum top speed, so you can hand the agent a concrete
-name instead of a vague "something nicer". When your ACRISS code is an "Elite"
-category, a plain same-class car is flagged as a notch short — not a match.
+whether to accept, hold out, or point at a specific better car. A shared
+**"Your priorities" panel** (brand, fuel, body, drivetrain, minimum top speed)
+drives the whole helper: it suggests **specific cars worth asking for** —
+realistic upgrades within reach of the branch and your status — and it **scores
+every car you're offered** for how well it fits your brief, so the strategy can
+recommend the best-fitting one, not just the highest class. When your ACRISS
+code is an "Elite" category, a plain same-class car is flagged as a notch short
+— not a match.
 
 **Ask the analyst — offline too.** Lucas now works with **no API key** out of
 the box: a witty rule-based mode covering swaps, negotiation, ACRISS codes and

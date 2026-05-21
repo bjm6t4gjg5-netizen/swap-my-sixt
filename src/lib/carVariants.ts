@@ -46,6 +46,11 @@ export const CAR_VARIANTS: CarVariant[] = [
   { id: "bmw-x3-xdrive30d", brand: "BMW", family: "X3", trim: "xDrive30d", classId: "suvMid", body: "suv", fuel: "Diesel", hp: 286, topSpeed: 245, accel: 5.8, drivetrain: "AWD", consumption: 6.2, seats: 5 },
   { id: "bmw-x3-m40i", brand: "BMW", family: "X3", trim: "M40i", classId: "suvMid", body: "suv", fuel: "Petrol", hp: 360, topSpeed: 250, accel: 4.9, drivetrain: "AWD", consumption: 9.0, seats: 5 },
 
+  // ── BMW X4 (suvMid, coupe-SUV) ────────────────────────────────────
+  { id: "bmw-x4-xdrive20i", brand: "BMW", family: "X4", trim: "xDrive20i", classId: "suvMid", body: "suv", fuel: "Petrol", hp: 184, topSpeed: 215, accel: 8.3, drivetrain: "AWD", consumption: 8.2, seats: 5 },
+  { id: "bmw-x4-xdrive30d", brand: "BMW", family: "X4", trim: "xDrive30d", classId: "suvMid", body: "suv", fuel: "Diesel", hp: 286, topSpeed: 247, accel: 5.7, drivetrain: "AWD", consumption: 6.5, seats: 5 },
+  { id: "bmw-x4-m40i", brand: "BMW", family: "X4", trim: "M40i", classId: "suvMid", body: "suv", fuel: "Petrol", hp: 360, topSpeed: 250, accel: 4.8, drivetrain: "AWD", consumption: 9.5, seats: 5 },
+
   // ── BMW X5 (suvPremium, suv) ──────────────────────────────────────
   { id: "bmw-x5-xdrive40i", brand: "BMW", family: "X5", trim: "xDrive40i", classId: "suvPremium", body: "suv", fuel: "Petrol", hp: 381, topSpeed: 243, accel: 5.6, drivetrain: "AWD", consumption: 9.3, seats: 5 },
   { id: "bmw-x5-xdrive40d", brand: "BMW", family: "X5", trim: "xDrive40d", classId: "suvPremium", body: "suv", fuel: "Diesel", hp: 352, topSpeed: 243, accel: 5.9, drivetrain: "AWD", consumption: 7.4, seats: 5 },
@@ -91,6 +96,12 @@ export const CAR_VARIANTS: CarVariant[] = [
   { id: "mercedes-cla-cla180", brand: "Mercedes", family: "CLA", trim: "CLA180", classId: "premium", body: "coupe", fuel: "Petrol", hp: 136, topSpeed: 210, accel: 9.1, drivetrain: "FWD", consumption: 6.0, seats: 5 },
   { id: "mercedes-cla-cla200", brand: "Mercedes", family: "CLA", trim: "CLA200", classId: "premium", body: "coupe", fuel: "Petrol", hp: 163, topSpeed: 225, accel: 8.2, drivetrain: "FWD", consumption: 6.1, seats: 5 },
   { id: "mercedes-cla-cla220d", brand: "Mercedes", family: "CLA", trim: "CLA220d", classId: "premium", body: "coupe", fuel: "Diesel", hp: 190, topSpeed: 235, accel: 7.1, drivetrain: "FWD", consumption: 4.6, seats: 5 },
+
+  // ── Mercedes CLE (premium coupe / convertible) ────────────────────
+  { id: "mercedes-cle-200", brand: "Mercedes", family: "CLE", trim: "200 Coupé", classId: "premium", body: "coupe", fuel: "Petrol", hp: 204, topSpeed: 240, accel: 7.3, drivetrain: "RWD", consumption: 7.0, seats: 4 },
+  { id: "mercedes-cle-300", brand: "Mercedes", family: "CLE", trim: "300 4MATIC Coupé", classId: "premium", body: "coupe", fuel: "Petrol", hp: 258, topSpeed: 250, accel: 6.2, drivetrain: "AWD", consumption: 7.6, seats: 4 },
+  { id: "mercedes-cle-cabrio", brand: "Mercedes", family: "CLE", trim: "200 Cabriolet", classId: "convertible", body: "convertible", fuel: "Petrol", hp: 204, topSpeed: 237, accel: 7.6, drivetrain: "RWD", consumption: 7.3, seats: 4 },
+  { id: "mercedes-cle-amg53", brand: "Mercedes", family: "CLE", trim: "AMG 53 4MATIC+", classId: "sport", body: "coupe", fuel: "Petrol", hp: 449, topSpeed: 250, accel: 4.2, drivetrain: "AWD", consumption: 9.0, seats: 4 },
 
   // ── Mercedes C-Class Estate (premium, wagon) ──────────────────────
   { id: "mercedes-c-estate-c200", brand: "Mercedes", family: "C-Class Estate", trim: "C200", classId: "premium", body: "wagon", fuel: "Petrol", hp: 204, topSpeed: 244, accel: 7.5, drivetrain: "RWD", consumption: 6.8, seats: 5 },

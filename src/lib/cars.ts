@@ -78,6 +78,7 @@ export const CAR_MODELS: CarModel[] = [
   { brand: "Audi", model: "A4 Limousine", classId: "premium", body: "sedan" },
   { brand: "Audi", model: "A4 Avant", classId: "premium", body: "wagon" },
   { brand: "BMW", model: "4 Series Gran Coupé", classId: "premium" },
+  { brand: "Mercedes-Benz", model: "CLE Coupé", classId: "premium", body: "coupe" },
   { brand: "Jaguar", model: "XE", classId: "premium" },
 
   // Premium Plus

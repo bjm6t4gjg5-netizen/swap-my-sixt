@@ -23,6 +23,23 @@
     return b.bookedExample?.trim() || CAR_CLASS_BY_ID[b.expectedClassId].label;
   })();
 
+  /** Is the booked car the currently-selected target? */
+  $: bookedIsCurrent = (() => {
+    const b = $booking;
+    const t = $target;
+    if (!b) return false;
+    const v = b.bookedVariantId ? VARIANT_BY_ID[b.bookedVariantId] : undefined;
+    if (v) {
+      return (
+        t.kind === "model" &&
+        t.brand === v.brand &&
+        t.model === `${v.family} ${v.trim}` &&
+        t.classId === v.classId
+      );
+    }
+    return t.kind === "class" && t.classId === b.expectedClassId;
+  })();
+
   function huntBooked() {
     const b = $booking;
     if (!b) return;
@@ -124,7 +141,11 @@
               <b>Hunt my booked car</b>
               <small>{bookedLabel}</small>
             </div>
-            <span class="booked-go">›</span>
+            {#if bookedIsCurrent}
+              <span class="cur">Current</span>
+            {:else}
+              <span class="booked-go">›</span>
+            {/if}
           </button>
         {/if}
 
@@ -263,8 +284,7 @@
     align-items: center;
     gap: 12px;
     padding: 12px;
-    background: var(--blue);
-    color: white;
+    background: var(--surface-2);
     border: none;
     border-radius: 14px;
     text-align: left;
@@ -275,15 +295,16 @@
     width: 42px;
     height: 42px;
     border-radius: 11px;
-    background: rgba(255, 255, 255, 0.22);
+    background: var(--blue-soft);
+    color: var(--blue);
     display: grid;
     place-items: center;
     flex-shrink: 0;
   }
   .booked-txt { flex: 1; min-width: 0; }
   .booked-txt b { font-size: 15px; }
-  .booked-txt small { display: block; font-size: 12px; opacity: 0.9; margin-top: 1px; }
-  .booked-go { font-size: 20px; opacity: 0.8; flex-shrink: 0; }
+  .booked-txt small { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .booked-go { font-size: 20px; color: var(--muted); flex-shrink: 0; }
 
   /* any / reset */
   .any-row {
